@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-
-
-import CarnetOverprintEditor, { PrintOverprintFields } from '../components/CarnetOverprintEditor';
-import { 
-  Stethoscope, 
+import SignaturePad from '../components/SignaturePad';
+import CarnetTemplate from '../components/CarnetTemplate';
+import {
+  Stethoscope,
+  PlusCircle, 
   AlertCircle, 
   CheckCircle, 
   XCircle, 
   ArrowLeft, 
   Activity, 
   Printer, 
-  Heart, 
-  FileText, 
-  BadgeAlert, 
-  ArrowRight, 
-  PlusCircle,
-  Edit3
+  Heart,
+  FileText,
+  BadgeAlert,
+  ArrowRight,
+  Settings2
 } from 'lucide-react';
 
 export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }) {
@@ -32,14 +31,13 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
   const [antecedentes, setAntecedentes] = useState('');
   const [diagnostico, setDiagnostico] = useState('Apto para la manipulación de alimentos.');
   const [aprobado, setAprobado] = useState(true);
-  const [nombreMedico, setNombreMedico] = useState('');
+  const [firma, setFirma] = useState('');
+  const [printSize, setPrintSize] = useState('standard');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [emitResult, setEmitResult] = useState(null);
-  const [showEditor, setShowEditor] = useState(false);
-  const [printWithBackground, setPrintWithBackground] = useState(false);
 
   const loadPendientes = async () => {
     setLoadingList(true);
@@ -78,7 +76,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
         setAprobado(false);
         setDiagnostico(
           `No Apto temporalmente. Se detectó: ${
-            hasParasitos ? 'Hallazgos parasitológicos positivos' : ''
+            hasParasitos ? 'Parasitosis (' + sharedData.coproparasitologico.parasito + ')' : ''
           }${hasVih ? (hasParasitos ? ' y ' : '') + 'VIH Reactivo' : ''}. Se prescribe tratamiento.`
         );
       } else {
@@ -95,8 +93,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
 
     if (!sharedData) return;
 
-    if (!nombreMedico.trim()) {
-      setError('Es obligatorio ingresar el nombre del médico evaluador para emitir el carnet.');
+    if (!firma) {
+      setError('Es obligatorio capturar la firma digitalizada del médico para emitir el carnet.');
       return;
     }
 
@@ -107,7 +105,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
       antecedentes_patologicos: antecedentes,
       diagnostico,
       aprobado,
-      firma_medico: nombreMedico.trim()
+      firma_medico: firma
     };
 
     try {
@@ -176,8 +174,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {pendientes.map((p) => {
-                  const microText = p.coproparasitologico?.examen_microscopico || p.coproparasitologico?.parasito || '';
-                  const coproPos = microText && !/no se observan|negativo/i.test(microText);
+                  const coproPos = p.coproparasitologico?.parasito !== 'Negativo';
                   const vihPos = p.vih?.resultado === 'Reactivo';
                   return (
                     <tr key={p.tramite_id} className="hover:bg-slate-50 transition-colors">
@@ -203,7 +200,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                             ? 'bg-amber-50 text-amber-700 border border-amber-200' 
                             : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                         }`}>
-                          {coproPos ? 'Hallazgo positivo' : 'Sin hallazgos'}
+                          {p.coproparasitologico?.parasito}
                         </span>
                       </td>
                       <td className="py-3 px-6">
@@ -259,77 +256,93 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
         </div>
       )}
 
-      {/* Banner de Éxito / Emisión */}
+      {/* Banner de Éxito / Emisión y Previsualización Oficial */}
       {success && emitResult && (
-        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm print:hidden">
-          <div className="flex gap-3">
-            <CheckCircle className="text-emerald-600 mt-0.5 shrink-0" size={20} />
-            <div>
-              <h3 className="text-sm font-bold text-emerald-800">Evaluación médica finalizada correctamente</h3>
-              <p className="text-xs text-emerald-600 mt-1">
-                {aprobado 
-                  ? `El carnet número ${emitResult.codigo_carnet} ha sido aprobado exitosamente.` 
-                  : 'El trámite ha sido guardado como rechazado temporalmente por diagnóstico clínico.'}
-              </p>
+        <div className="space-y-6 print:hidden">
+          <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+            <div className="flex gap-3">
+              <CheckCircle className="text-emerald-600 mt-0.5 shrink-0" size={20} />
+              <div>
+                <h3 className="text-sm font-bold text-emerald-800">Evaluación médica finalizada correctamente</h3>
+                <p className="text-xs text-emerald-600 mt-1">
+                  {aprobado 
+                    ? `El carnet oficial número ${emitResult.codigo_carnet} ha sido aprobado para su emisión.` 
+                    : 'El trámite ha sido guardado como rechazado temporalmente por diagnóstico clínico.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {aprobado && (
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-xs"
+                >
+                  <Printer size={14} />
+                  Imprimir Carnet
+                </button>
+              )}
+              <button
+                onClick={handleFinish}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-950 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Finalizar Trámite
+              </button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {aprobado && (
-              <>
-                <button
-                  onClick={() => {
-                    setPrintWithBackground(true);
-                    setTimeout(() => window.print(), 100);
-                  }}
-                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-xs"
-                  title="Imprime el carnet con su diseño completo de SEDES Beni"
-                >
-                  <Printer size={13} />
-                  Carnet Completo
-                </button>
-                <button
-                  onClick={() => {
-                    setPrintWithBackground(false);
-                    setTimeout(() => window.print(), 100);
-                  }}
-                  className="flex items-center gap-1 px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-xs"
-                  title="Imprime los datos sobre el carnet preimpreso"
-                >
-                  <Printer size={13} />
-                  Sobreimpresión
-                </button>
-                <button
-                  onClick={() => setShowEditor(true)}
-                  className="flex items-center gap-1 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer border border-slate-300"
-                  title="Calibrar y ajustar textos"
-                >
-                  <Edit3 size={13} />
-                  Calibrar
-                </button>
-              </>
-            )}
-            <button
-              onClick={handleFinish}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-950 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
-            >
-              Finalizar Trámite
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Editor Modal de Calibración si el médico desea mover campos */}
-      {showEditor && emitResult && sharedData && (
-        <CarnetOverprintEditor
-          carnetData={{
-            ...sharedData,
-            codigo_carnet: emitResult.codigo_carnet,
-            fecha_emision: emitResult.fecha_emision,
-            fecha_vencimiento: emitResult.fecha_vencimiento,
-          }}
-          onPrint={handlePrint}
-          onClose={() => setShowEditor(false)}
-        />
+          {/* Panel de Vista Previa y Configuración de Impresión para el Carnet Aprobado */}
+          {aprobado && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center gap-6">
+              <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <Settings2 size={16} className="text-blue-600" />
+                    Vista Previa y Formato de Impresión
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">Seleccione el tipo de soporte físico antes de enviar a imprimir.</p>
+                </div>
+
+                {/* Selector de tamaño */}
+                <div className="flex gap-3">
+                  <label className={`cursor-pointer px-3.5 py-2 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                    <input type="radio" name="consultaPrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                    📄 Cartulina (10 × 7.5 cm)
+                  </label>
+                  <label className={`cursor-pointer px-3.5 py-2 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                    <input type="radio" name="consultaPrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                    💳 Tarjeta CR80 (8.6 × 5.4 cm)
+                  </label>
+                </div>
+              </div>
+
+              {/* Vista previa centrada con escala */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 w-full flex justify-center overflow-x-auto">
+                <div style={{ transform: 'scale(1.25)', transformOrigin: 'top center', marginBottom: printSize === 'standard' ? '40px' : '20px' }}>
+                  <CarnetTemplate 
+                    carnet={{
+                      ...sharedData,
+                      codigo_carnet: emitResult.codigo_carnet,
+                      fecha_emision: emitResult.fecha_emision,
+                      fecha_vencimiento: emitResult.fecha_vencimiento,
+                      firma_medico: firma
+                    }} 
+                    size={printSize} 
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end w-full gap-3">
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
+                >
+                  <Printer size={15} />
+                  Proceder a Imprimir Carnet
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {error && (
@@ -339,21 +352,18 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
         </div>
       )}
 
-      {/* RENDER EXCLUSIVO PARA IMPRESIÓN (CARNET FÍSICO) - Hoja Carta con marcas de corte */}
+      {/* RENDER EXCLUSIVO PARA IMPRESIÓN (CARNET FÍSICO OFICIAL) */}
       {aprobado && emitResult && sharedData && (
-        <div className="hidden print:block print-page crop-marks">
-          <div className="crop-mark tl" />
-          <div className="crop-mark tr" />
-          <div className="crop-mark bl" />
-          <div className="crop-mark br" />
-          <PrintOverprintFields 
-            carnetData={{
+        <div className="hidden print:block print-area print-carnet-wrapper">
+          <CarnetTemplate 
+            carnet={{
               ...sharedData,
               codigo_carnet: emitResult.codigo_carnet,
               fecha_emision: emitResult.fecha_emision,
               fecha_vencimiento: emitResult.fecha_vencimiento,
-            }}
-            includeBackground={printWithBackground}
+              firma_medico: firma
+            }} 
+            size={printSize} 
           />
         </div>
       )}
@@ -424,53 +434,23 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               {/* Coproparasitológico */}
               <div className="space-y-1.5 text-xs">
                 <h5 className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Coproparasitológico</h5>
-                <div className={`p-3 rounded-lg border flex flex-col gap-1.5 ${
+                <div className={`p-3 rounded-lg border flex flex-col gap-1 ${
                   coproAlert ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'
                 }`}>
-                  {/* Macroscópico */}
-                  {(sharedData.coproparasitologico?.aspecto || sharedData.coproparasitologico?.moco || sharedData.coproparasitologico?.sangre_macroscopica) && (
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Examen Macroscópico</span>
-                      {sharedData.coproparasitologico?.aspecto && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-400 font-medium">Aspecto:</span>
-                          <span className="font-semibold text-slate-700">{sharedData.coproparasitologico.aspecto}</span>
-                        </div>
-                      )}
-                      {sharedData.coproparasitologico?.moco && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-400 font-medium">Moco:</span>
-                          <span className="font-semibold text-slate-700">{sharedData.coproparasitologico.moco}</span>
-                        </div>
-                      )}
-                      {sharedData.coproparasitologico?.sangre_macroscopica && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-400 font-medium">Sangre:</span>
-                          <span className="font-semibold text-slate-700">{sharedData.coproparasitologico.sangre_macroscopica}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Microscópico */}
-                  {sharedData.coproparasitologico?.examen_microscopico && (
-                    <div className="pt-1.5 border-t border-slate-200/80 space-y-1">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Examen Microscópico Directo</span>
-                      <p className={`text-xs font-semibold leading-snug ${coproAlert ? 'text-amber-700' : 'text-slate-700'}`}>
-                        {sharedData.coproparasitologico.examen_microscopico}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Fallback datos legacy */}
-                  {!sharedData.coproparasitologico?.examen_microscopico && sharedData.coproparasitologico?.parasito && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-400 font-medium">Parásito:</span>
-                      <span className={`font-bold ${coproAlert ? 'text-amber-700' : 'text-slate-800'}`}>
-                        {sharedData.coproparasitologico.parasito}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Parásito:</span>
+                    <span className={`font-bold ${coproAlert ? 'text-amber-700' : 'text-slate-800'}`}>
+                      {sharedData.coproparasitologico?.parasito}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Consistencia:</span>
+                    <span className="font-semibold text-slate-700">{sharedData.coproparasitologico?.consistencia}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Color:</span>
+                    <span className="font-semibold text-slate-700">{sharedData.coproparasitologico?.color}</span>
+                  </div>
                 </div>
               </div>
 
@@ -492,6 +472,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 </div>
               </div>
 
+              
               {/* Otros Análisis */}
               {sharedData.otros_analisis && sharedData.otros_analisis.length > 0 && (
                 <div className="space-y-2 text-xs">
@@ -534,7 +515,6 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                   </span>
                 </div>
               )}
-
             </div>
 
           </div>
@@ -631,20 +611,9 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 />
               </div>
 
-              {/* Médico Evaluador */}
-              <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl space-y-2">
-                <label className="block text-sm font-bold text-emerald-700">
-                  👨‍⚕️ Médico Evaluador *
-                </label>
-                <p className="text-[11px] text-emerald-600">Este nombre quedará registrado en el expediente como responsable de la evaluación.</p>
-                <input
-                  type="text"
-                  value={nombreMedico}
-                  onChange={(e) => setNombreMedico(e.target.value)}
-                  placeholder="Ej. Dr. Juan Solano del Tapia"
-                  required
-                  className="w-full px-4 py-3 border-2 border-emerald-300 rounded-xl text-base font-bold text-emerald-900 outline-none focus:border-emerald-600 bg-white placeholder:font-normal placeholder:text-emerald-300"
-                />
+              {/* Firma del Médico */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <SignaturePad onSave={setFirma} initialSignature={firma} />
               </div>
 
               {/* Decisión de aprobación */}

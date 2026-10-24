@@ -26,113 +26,57 @@
   }
 }
 
-
-/* ============================================
-   REGLAS DE IMPRESIÓN - CARNET SANITARIO
-   ============================================ */
+/* Reglas de Impresión para el Carnet Sanitario Oficial y Reportes */
 @media print {
-  /* Ocultar TODO por defecto */
+  /* Asegurar fidelidad exacta de colores, fondos e imágenes al imprimir */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Ocultar elementos interactivos de navegación y modales */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Ocultar todo el árbol de la aplicación por defecto */
   body * {
     visibility: hidden;
   }
-  
-  /* Solo mostrar áreas de impresión explícitas */
-  .print-page, .print-page *,
-  .print-area, .print-area * {
-    visibility: visible;
-  }
-  
-  /* Forzar que solo una página se imprima (la que tiene contenido) */
-  .print-page {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 215.9mm;
-    height: 279.4mm;
-    margin: 0;
-    padding: 0;
-    background: white;
-    /* Sin page-break-after para evitar página en blanco extra */
+
+  /* Hacer visible únicamente la zona de impresión y sus descendientes */
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
   }
 
+  /* Posicionar el área de impresión en el origen de la página */
   .print-area {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: auto;
-    margin: 0;
-    padding: 0;
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
     box-shadow: none !important;
     border: none !important;
-    background: white !important;
   }
 
-  /* Layout de página - sin márgenes */
+  /* Evitar saltos de página dentro del carnet */
+  .carnet-oficial,
+  .print-carnet-wrapper {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Configuración de página limpia sin cabeceras/pies de página de URL */
   @page {
-    size: letter;
-    margin: 0;
-  }
-
-  /* Capa de campos sobreimpresos - coordenadas reales en mm */
-  .print-fields-layer {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
-  .print-field {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-
-  /* Carnet Sanitario Kardex SEDES Beni (100x67mm estándar carnet/kardex) centrado en hoja carta */
-  .print-card-kardex {
-    position: absolute;
-    width: 100mm;
-    height: 67mm;
-    left: 57.95mm;
-    top: 106.2mm;
-    box-sizing: border-box;
-  }
-
-  /* Carnet CR80 (85.6x54mm) centrado en hoja carta */
-  .print-card {
-    position: absolute;
-    width: 85.6mm;
-    height: 54mm;
-    left: 65.15mm;
-    top: 112.7mm;
-    box-shadow: none !important;
-    border: 1px solid #cbd5e1 !important;
-  }
-
-  /* Variante para carnet estándar 100x75mm (EmisionCarnets) */
-  .print-card-standard {
-    width: 100mm;
-    height: 75mm;
-    left: 57.95mm;
-    top: 102.2mm;
-  }
-
-  /* Marcas de corte (crop marks) */
-  .crop-marks .crop-mark {
-    position: absolute;
-    width: 8mm;
-    height: 8mm;
-    border: 1px solid #64748b;
-    pointer-events: none;
-  }
-  .crop-marks .crop-mark.tl { top: -4mm; left: -4mm; border-right: none; border-bottom: none; }
-  .crop-marks .crop-mark.tr { top: -4mm; right: -4mm; border-left: none; border-bottom: none; }
-  .crop-marks .crop-mark.bl { bottom: -4mm; left: -4mm; border-right: none; border-top: none; }
-  .crop-marks .crop-mark.br { bottom: -4mm; right: -4mm; border-left: none; border-top: none; }
-
-  /* Ocultar elementos de UI no impresos */
-  .no-print, .no-print * {
-    display: none !important;
+    size: auto;
+    margin: 5mm;
   }
 }
 

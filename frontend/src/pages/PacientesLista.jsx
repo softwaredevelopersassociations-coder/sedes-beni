@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Search, Users, Eye, History, PlusCircle, AlertCircle, Calendar, ArrowLeft, Printer, Edit3 } from 'lucide-react';
-import CarnetOverprintEditor, { PrintOverprintFields } from '../components/CarnetOverprintEditor';
+import CarnetTemplate from '../components/CarnetTemplate';
+import { Settings2, X } from 'lucide-react';
 
 export default function PacientesLista({ onNavigate, setSharedData }) {
   const [query, setQuery] = useState('');
@@ -19,8 +20,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
 
   // Impresión de Carnet desde el expediente
   const [carnetToPrint, setCarnetToPrint] = useState(null);
-  const [showEditor, setShowEditor] = useState(false);
-  const [printWithBackground, setPrintWithBackground] = useState(false);
+  const [printSize, setPrintSize] = useState('standard');
 
   // Nuevo Trámite Form para paciente existente
   const [showNewTramiteModal, setShowNewTramiteModal] = useState(false);
@@ -369,45 +369,12 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                               ...item,
                               tramite_id: item.id
                             });
-                            setPrintWithBackground(true);
-                            setTimeout(() => window.print(), 100);
                           }}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                          title="Imprimir carnet completo con diseño oficial de SEDES Beni"
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-950 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                          title="Ver y configurar impresión oficial del carnet"
                         >
                           <Printer size={12} />
-                          Carnet Completo
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCarnetToPrint({
-                              ...selectedPaciente,
-                              ...item,
-                              tramite_id: item.id
-                            });
-                            setPrintWithBackground(false);
-                            setTimeout(() => window.print(), 100);
-                          }}
-                          className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                          title="Imprimir solo datos sobre cartulina preimpresa"
-                        >
-                          <Printer size={12} />
-                          Sobreimpresión
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCarnetToPrint({
-                              ...selectedPaciente,
-                              ...item,
-                              tramite_id: item.id
-                            });
-                            setShowEditor(true);
-                          }}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-slate-300"
-                          title="Calibrar posiciones"
-                        >
-                          <Edit3 size={12} />
-                          Calibrar
+                          Ver / Imprimir
                         </button>
                       </div>
                     </div>
@@ -418,23 +385,56 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
           )}
         </div>
 
-        {/* Modal de Calibración */}
-        {showEditor && carnetToPrint && (
-          <CarnetOverprintEditor
-            carnetData={carnetToPrint}
-            onPrint={() => window.print()}
-            onClose={() => setShowEditor(false)}
-          />
+        {/* Modal de Previsualización Oficial de Carnet */}
+        {carnetToPrint && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh]">
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                  <Settings2 size={16} className="text-blue-600" />
+                  Configuración de Impresión de Carnet
+                </h3>
+                <button onClick={() => setCarnetToPrint(null)} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto flex-1 bg-slate-100/50 flex flex-col items-center gap-6">
+                <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+                  <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                    <input type="radio" name="pacientePrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                    📄 Cartulina Estándar (10 × 7.5 cm)
+                  </label>
+                  <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                    <input type="radio" name="pacientePrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                    💳 Tarjeta PVC CR80 (8.6 × 5.4 cm)
+                  </label>
+                </div>
+
+                <div className="text-xs text-slate-500">Vista previa:</div>
+                
+                <div style={{ transform: 'scale(1.4)', transformOrigin: 'top center', marginBottom: '90px' }}>
+                  <CarnetTemplate carnet={carnetToPrint} size={printSize} />
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex justify-end gap-3">
+                <button onClick={() => setCarnetToPrint(null)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                  Cerrar
+                </button>
+                <button onClick={() => window.print()} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                  <Printer size={15} />
+                  Proceder a Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Zona de impresión oculta en pantalla, visible al imprimir */}
         {carnetToPrint && (
-          <div className="hidden print:block print-page crop-marks">
-            <div className="crop-mark tl" />
-            <div className="crop-mark tr" />
-            <div className="crop-mark bl" />
-            <div className="crop-mark br" />
-            <PrintOverprintFields carnetData={carnetToPrint} includeBackground={printWithBackground} />
+          <div className="hidden print:block print-area print-carnet-wrapper">
+            <CarnetTemplate carnet={carnetToPrint} size={printSize} />
           </div>
         )}
       </div>

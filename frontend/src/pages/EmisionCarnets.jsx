@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { AlertCircle, FileCheck2, Edit3, Printer } from 'lucide-react';
-import CarnetOverprintEditor, { PrintOverprintFields } from '../components/CarnetOverprintEditor';
+import { Printer, AlertCircle, FileCheck2, Settings2, X } from 'lucide-react';
+import CarnetTemplate from '../components/CarnetTemplate';
 
 export default function EmisionCarnets() {
   const [carnets, setCarnets] = useState([]);
@@ -9,8 +9,7 @@ export default function EmisionCarnets() {
   const [error, setError] = useState('');
   
   const [selectedCarnet, setSelectedCarnet] = useState(null);
-  const [showEditor, setShowEditor] = useState(false);
-  const [printWithBackground, setPrintWithBackground] = useState(false);
+  const [printSize, setPrintSize] = useState('standard');
 
   const fetchCarnets = async () => {
     setLoading(true);
@@ -30,35 +29,18 @@ export default function EmisionCarnets() {
     fetchCarnets();
   }, []);
 
-  const openEditor = (carnet) => {
-    setSelectedCarnet(carnet);
-    setShowEditor(true);
-  };
-
-  const closeEditor = () => {
-    setShowEditor(false);
-  };
-
   const handlePrint = () => {
     window.print();
   };
 
-  const handleQuickPrint = (carnet, withBg = false) => {
-    setSelectedCarnet(carnet);
-    setPrintWithBackground(withBg);
-    setTimeout(() => {
-      window.print();
-    }, 150);
-  };
-
   return (
     <div className="space-y-6">
-      {/* ===== PANTALLA PRINCIPAL ===== */}
+      {/* ===== PANTALLA PRINCIPAL (se oculta al imprimir) ===== */}
       <div className="print:hidden space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Emisión y Backup de Carnets</h2>
-            <p className="text-xs text-slate-500 mt-1">Gestione, revise e imprima los carnets sanitarios oficiales de SEDES Beni.</p>
+            <p className="text-xs text-slate-500 mt-1">Gestione, revise e imprima los carnets sanitarios aprobados.</p>
           </div>
         </div>
 
@@ -88,45 +70,26 @@ export default function EmisionCarnets() {
                   <th className="py-3.5 px-6">Paciente</th>
                   <th className="py-3.5 px-6">Cédula</th>
                   <th className="py-3.5 px-6">Válido Hasta</th>
-                  <th className="py-3.5 px-6 text-center">Acciones de Impresión</th>
+                  <th className="py-3.5 px-6 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {carnets.map(c => (
-                  <tr key={c.tramite_id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={c.tramite_id} className="hover:bg-slate-50">
                     <td className="py-3 px-6 font-mono font-bold text-blue-700">{c.codigo_carnet}</td>
                     <td className="py-3 px-6 font-semibold">{c.nombres} {c.apellidos}</td>
                     <td className="py-3 px-6 font-mono">{c.ci} {c.ci_exp}</td>
                     <td className="py-3 px-6">
                       {c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-ES') : '—'}
                     </td>
-                    <td className="py-3 px-6">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleQuickPrint(c, true)}
-                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                          title="Imprime el carnet con su diseño oficial completo en hoja limpia o cartulina"
-                        >
-                          <Printer size={12} />
-                          Carnet Completo
-                        </button>
-                        <button
-                          onClick={() => handleQuickPrint(c, false)}
-                          className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                          title="Imprime sólo los datos sobre la cartulina del carnet ya preimpreso"
-                        >
-                          <Printer size={12} />
-                          Sobreimpresión
-                        </button>
-                        <button
-                          onClick={() => openEditor(c)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-slate-300"
-                          title="Ajustar posiciones milimétricas de los textos"
-                        >
-                          <Edit3 size={12} />
-                          Calibrar
-                        </button>
-                      </div>
+                    <td className="py-3 px-6 text-center">
+                      <button
+                        onClick={() => setSelectedCarnet(c)}
+                        className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-950 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 mx-auto"
+                      >
+                        <Printer size={12} />
+                        Ver / Imprimir
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -136,25 +99,61 @@ export default function EmisionCarnets() {
         )}
       </div>
 
-      {/* ===== EDITOR Y CALIBRADOR DE CARNET ===== */}
-      {showEditor && selectedCarnet && (
-        <CarnetOverprintEditor
-          carnetData={selectedCarnet}
-          onPrint={handlePrint}
-          onClose={closeEditor}
-        />
+      {/* ===== MODAL DE PREVISUALIZACIÓN (se oculta al imprimir) ===== */}
+      {selectedCarnet && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <Settings2 size={16} className="text-blue-600" />
+                Configuración de Impresión
+              </h3>
+              <button onClick={() => setSelectedCarnet(null)} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-100/50 flex flex-col items-center gap-6">
+              {/* Selector de tamaño */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+                <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                  <input type="radio" name="size" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                  📄 Cartulina Estándar (10 × 7.5 cm)
+                </label>
+                <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                  <input type="radio" name="size" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                  💳 Tarjeta PVC CR80 (8.6 × 5.4 cm)
+                </label>
+              </div>
+
+              <div className="text-xs text-slate-500">Vista previa:</div>
+              
+              {/* Previsualización escalada */}
+              <div style={{ transform: 'scale(1.6)', transformOrigin: 'top center', marginBottom: '120px' }}>
+                <CarnetTemplate carnet={selectedCarnet} size={printSize} />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex justify-end gap-3">
+              <button onClick={() => setSelectedCarnet(null)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                Cancelar
+              </button>
+              <button onClick={handlePrint} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                <Printer size={15} />
+                Proceder a Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ===== ZONA DE IMPRESIÓN (activada por window.print) ===== */}
+      {/* ===== ZONA DE IMPRESIÓN OFICIAL ===== */}
       {selectedCarnet && (
-        <div className="hidden print:block print-page crop-marks">
-          <div className="crop-mark tl" />
-          <div className="crop-mark tr" />
-          <div className="crop-mark bl" />
-          <div className="crop-mark br" />
-          <PrintOverprintFields carnetData={selectedCarnet} includeBackground={printWithBackground} />
+        <div className="hidden print:block print-area print-carnet-wrapper">
+          <CarnetTemplate carnet={selectedCarnet} size={printSize} />
         </div>
       )}
     </div>
   );
 }
+

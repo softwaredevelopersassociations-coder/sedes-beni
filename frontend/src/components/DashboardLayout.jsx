@@ -61,7 +61,7 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
       id: 'emision-carnets',
       label: 'Emisión de Carnets',
       icon: Printer,
-      roles: ['admin'],
+      roles: ['admin', 'medico'],
     },
     {
       id: 'usuarios-gestion',
@@ -165,7 +165,7 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
 
       {/* ── SIDEBAR DRAWER (móvil/tablet) ── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-green-950 text-green-100 flex flex-col shrink-0 border-r border-green-900
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-green-950 text-green-100 flex flex-col shrink-0 border-r border-green-900 print:hidden
           transform transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:hidden`}
@@ -181,15 +181,15 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
       </aside>
 
       {/* ── SIDEBAR FIJO (desktop lg+) ── */}
-      <aside className="hidden lg:flex w-64 bg-green-950 text-green-100 flex-col shrink-0 border-r border-green-900">
+      <aside className="hidden lg:flex w-64 bg-green-950 text-green-100 flex-col shrink-0 border-r border-green-900 print:hidden">
         <SidebarContent />
       </aside>
 
       {/* ── ÁREA PRINCIPAL ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:block">
 
         {/* Topbar móvil/tablet */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-green-950 border-b border-green-900 shrink-0">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-green-950 border-b border-green-900 shrink-0 print:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 rounded-lg text-green-300 hover:text-white hover:bg-green-800 transition-colors"
@@ -207,13 +207,13 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
         </header>
 
         {/* Contenido scrolleable */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
-          <main className="p-4 sm:p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto">
+        <div className="flex-1 overflow-y-auto flex flex-col print:overflow-visible print:block">
+          <main className="p-4 sm:p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none">
             {children}
           </main>
 
           {/* Footer */}
-          <footer className="py-3 px-4 sm:px-8 border-t border-green-100 text-center text-xs text-green-700 bg-green-50">
+          <footer className="py-3 px-4 sm:px-8 border-t border-green-100 text-center text-xs text-green-700 bg-green-50 print:hidden">
             Sistema Digital de Gestión del Carnet Sanitario &bull; Unidad de Salud Ambiental e Inocuidad Alimentaria &bull; SEDES Beni
           </footer>
         </div>
