@@ -45,7 +45,13 @@ export default function CarnetTemplate({ carnet, size = 'standard' }) {
   const s = isCR80 ? 0.72 : 1; // Factor de escala para textos y espacios
 
   // Formatear el número de carnet sin desbordar el casillero
+  // Se prioriza el Número de Carnet Físico (Kardex) ingresado en el registro del cliente
   const numCarnet = (() => {
+    const fisico = carnet.numero_carnet_fisico || carnet.carnet_fisico;
+    if (fisico && String(fisico).trim()) {
+      const limpio = String(fisico).trim();
+      return /^\d+$/.test(limpio) && limpio.length < 5 ? limpio.padStart(5, '0') : limpio;
+    }
     if (!carnet.codigo_carnet) return '000001';
     const match = String(carnet.codigo_carnet).match(/\d+$/);
     if (match) {

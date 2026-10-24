@@ -329,6 +329,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                     carnet={{
                       ...sharedData,
                       codigo_carnet: emitResult.codigo_carnet,
+                      numero_carnet_fisico: emitResult.numero_carnet_fisico || sharedData.numero_carnet_fisico,
                       fecha_emision: emitResult.fecha_emision,
                       fecha_vencimiento: emitResult.fecha_vencimiento,
                       nombre_medico: nombreMedico,
@@ -367,6 +368,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
             carnet={{
               ...sharedData,
               codigo_carnet: emitResult.codigo_carnet,
+              numero_carnet_fisico: emitResult.numero_carnet_fisico || sharedData.numero_carnet_fisico,
               fecha_emision: emitResult.fecha_emision,
               fecha_vencimiento: emitResult.fecha_vencimiento,
               nombre_medico: nombreMedico,

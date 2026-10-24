@@ -8,7 +8,7 @@ const { logAuditoria } = require('../utils/logger');
 router.get('/pendientes', verifyToken, checkRole(['admin', 'laboratorio']), async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT t.id as tramite_id, t.tipo_tramite, t.costo_bs, t.fecha_inicio,
+      SELECT t.id as tramite_id, t.tipo_tramite, t.costo_bs, t.fecha_inicio, t.numero_carnet_fisico,
              p.id as paciente_id, p.ci, p.ci_exp, p.nombres, p.apellidos, p.ocupacion, p.empresa_trabajo, p.mercado, p.foto_url
       FROM tramites t
       JOIN pacientes p ON t.paciente_id = p.id

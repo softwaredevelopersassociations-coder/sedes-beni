@@ -76,7 +76,14 @@ export default function EmisionCarnets() {
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {carnets.map(c => (
                   <tr key={c.tramite_id} className="hover:bg-slate-50">
-                    <td className="py-3 px-6 font-mono font-bold text-blue-700">{c.codigo_carnet}</td>
+                    <td className="py-3 px-6">
+                      {c.numero_carnet_fisico && (
+                        <span className="font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px] inline-block mb-1">
+                          Nº {c.numero_carnet_fisico}
+                        </span>
+                      )}
+                      <p className="font-mono text-slate-500 text-[10px]">{c.codigo_carnet}</p>
+                    </td>
                     <td className="py-3 px-6 font-semibold">{c.nombres} {c.apellidos}</td>
                     <td className="py-3 px-6 font-mono">{c.ci} {c.ci_exp}</td>
                     <td className="py-3 px-6">

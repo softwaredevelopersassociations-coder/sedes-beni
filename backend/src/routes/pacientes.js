@@ -58,7 +58,7 @@ router.get('/', verifyToken, async (req, res) => {
 router.get('/aprobados', verifyToken, async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT t.id as tramite_id, t.tipo_tramite, t.codigo_carnet, t.fecha_emision, t.fecha_vencimiento,
+      SELECT t.id as tramite_id, t.tipo_tramite, t.codigo_carnet, t.numero_carnet_fisico, t.fecha_emision, t.fecha_vencimiento,
              p.id as paciente_id, p.ci, p.ci_exp, p.nombres, p.apellidos, p.foto_url, p.ocupacion, p.empresa_trabajo, p.mercado,
              l.quimica_sanguinea,
              c.firma_medico
@@ -90,7 +90,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 
     // 2. Obtener historial de trámites con sus resultados asociados
     const tramitesRes = await db.query(`
-      SELECT t.id, t.tipo_tramite, t.codigo_carnet, t.estado, t.costo_bs, t.fecha_inicio, t.fecha_emision, t.fecha_vencimiento,
+      SELECT t.id, t.tipo_tramite, t.codigo_carnet, t.numero_carnet_fisico, t.estado, t.costo_bs, t.fecha_inicio, t.fecha_emision, t.fecha_vencimiento,
              l.id as lab_id, l.quimica_sanguinea, l.coproparasitologico, l.vih, l.fecha_registro as lab_fecha,
              COALESCE(
                json_agg(

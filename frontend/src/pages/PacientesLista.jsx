@@ -358,7 +358,12 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                   {item.estado === 'Aprobado' && item.codigo_carnet && (
                     <div className="pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2">
                       <span className="text-[11px] text-slate-500 font-medium">
-                        Carnet emitido: <strong className="text-blue-700 font-mono">{item.codigo_carnet}</strong> 
+                        {item.numero_carnet_fisico && (
+                          <span className="mr-2 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded font-bold font-mono">
+                            Nº Físico: {item.numero_carnet_fisico}
+                          </span>
+                        )}
+                        Carnet: <strong className="text-blue-700 font-mono">{item.codigo_carnet}</strong> 
                         {item.fecha_vencimiento && ` (Vence: ${new Date(item.fecha_vencimiento).toLocaleDateString('es-ES')})`}
                       </span>
                       <div className="flex items-center gap-2">

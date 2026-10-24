@@ -8,7 +8,7 @@ const { logAuditoria } = require('../utils/logger');
 router.get('/pendientes', verifyToken, checkRole(['admin', 'medico']), async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT t.id as tramite_id, t.tipo_tramite, t.costo_bs, t.fecha_inicio,
+      SELECT t.id as tramite_id, t.tipo_tramite, t.costo_bs, t.fecha_inicio, t.numero_carnet_fisico,
              p.id as paciente_id, p.ci, p.ci_exp, p.nombres, p.apellidos, p.ocupacion, p.empresa_trabajo, p.mercado, p.foto_url,
              p.fecha_nacimiento, p.genero,
              l.id as lab_id, l.quimica_sanguinea, l.coproparasitologico, l.vih, l.observaciones as lab_observaciones, l.fecha_registro as lab_fecha,
@@ -51,7 +51,7 @@ router.post('/:tramiteId', verifyToken, checkRole(['admin', 'medico']), async (r
     await client.query('BEGIN');
 
     // 1. Verificar trámite en estado 'Pendiente Medicina'
-    const tramiteRes = await client.query('SELECT estado, paciente_id FROM tramites WHERE id = $1', [tramiteId]);
+    const tramiteRes = await client.query('SELECT estado, paciente_id, numero_carnet_fisico FROM tramites WHERE id = $1', [tramiteId]);
     if (tramiteRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Trámite no encontrado.' });
@@ -140,6 +140,7 @@ router.post('/:tramiteId', verifyToken, checkRole(['admin', 'medico']), async (r
         : 'Trámite rechazado.',
       estado: estadoFinal,
       codigo_carnet: codigoCarnet,
+      numero_carnet_fisico: tramite.numero_carnet_fisico,
       fecha_emision: fechaEmision,
       fecha_vencimiento: fechaVencimiento
     });
