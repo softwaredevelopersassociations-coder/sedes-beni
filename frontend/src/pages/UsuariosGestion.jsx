@@ -128,7 +128,7 @@ export default function UsuariosGestion() {
     <div className="space-y-6">
       
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Gestión de Personal y Cuentas</h2>
           <p className="text-xs text-slate-500 mt-1">Cree cuentas y administre los accesos del personal bioquímico y médico.</p>
@@ -136,7 +136,7 @@ export default function UsuariosGestion() {
 
         <button
           onClick={handleOpenCreate}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 cursor-pointer transition-colors flex items-center gap-1"
+          className="w-full sm:w-auto justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 cursor-pointer transition-colors flex items-center gap-1"
         >
           <UserPlus size={14} />
           Nuevo Usuario
@@ -163,8 +163,8 @@ export default function UsuariosGestion() {
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-left text-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-[620px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-6">ID</th>

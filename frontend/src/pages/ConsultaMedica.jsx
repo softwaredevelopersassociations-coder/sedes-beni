@@ -159,8 +159,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
             <p className="text-[10px] text-slate-400 mt-1">Los trámites aparecerán aquí tras registrarse sus resultados de laboratorio.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <table className="w-full text-left text-xs">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-6">Foto</th>
@@ -302,21 +302,21 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 </div>
 
                 {/* Selector de tamaño */}
-                <div className="flex gap-3">
-                  <label className={`cursor-pointer px-3.5 py-2 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                  <label className={`cursor-pointer flex-1 sm:flex-initial px-3.5 py-2 border-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="consultaPrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
                     📄 Cartulina (10 × 7.5 cm)
                   </label>
-                  <label className={`cursor-pointer px-3.5 py-2 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                  <label className={`cursor-pointer flex-1 sm:flex-initial px-3.5 py-2 border-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="consultaPrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
                     💳 Tarjeta CR80 (8.6 × 5.4 cm)
                   </label>
                 </div>
               </div>
 
-              {/* Vista previa centrada con escala */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 w-full flex justify-center overflow-x-auto">
-                <div style={{ transform: 'scale(1.25)', transformOrigin: 'top center', marginBottom: printSize === 'standard' ? '40px' : '20px' }}>
+              {/* Vista previa centrada con escala adaptable */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 sm:p-8 w-full flex justify-center overflow-x-auto">
+                <div className="scale-[0.8] sm:scale-100 md:scale-125 origin-top" style={{ marginBottom: printSize === 'standard' ? '40px' : '20px' }}>
                   <CarnetTemplate 
                     carnet={{
                       ...sharedData,
@@ -667,18 +667,18 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               </div>
 
               {/* Acciones */}
-              <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setSharedData(null)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  className="w-full sm:w-auto text-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                  className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
                 >
                   {submitting ? 'Emitiendo...' : 'Registrar Evaluación y Emitir'}
                 </button>

@@ -51,18 +51,20 @@ export default function Reportes() {
           <p className="text-xs text-slate-500 mt-1">Consolide reportes sanitarios y genere la planilla mensual de control Formulario 303.</p>
         </div>
 
-        <div className="flex gap-2.5 items-center bg-white p-3 border border-slate-200 rounded-xl shadow-xs">
-          <Calendar size={14} className="text-slate-400" />
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="text-xs outline-none font-bold text-slate-800 bg-transparent cursor-pointer"
-          />
+        <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center bg-white p-3 border border-slate-200 rounded-xl shadow-xs w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <Calendar size={14} className="text-slate-400" />
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="text-xs outline-none font-bold text-slate-800 bg-transparent cursor-pointer w-full"
+            />
+          </div>
           <button
             onClick={handlePrint}
             disabled={loading || !reporteData}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 w-full sm:w-auto"
           >
             <Printer size={14} />
             Imprimir Reporte
@@ -85,7 +87,7 @@ export default function Reportes() {
       ) : reporteData ? (
         <>
           {/* BANDEJA IMPRIMIBLE DEL FORMULARIO 303 */}
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6 print:border-none print:shadow-none print:p-0 print-area">
+          <div className="bg-white p-4 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6 print:border-none print:shadow-none print:p-0 print-area">
             
             {/* Cabecera Oficial */}
             <div className="text-center border-b-2 border-slate-900 pb-4 mb-6">
@@ -100,7 +102,7 @@ export default function Reportes() {
             </div>
 
             {/* Ficha Resumen de Indicadores */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 text-center print:bg-white print:border-slate-300">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Evaluados</span>
                 <span className="text-xl font-bold text-slate-900 block mt-1 font-mono">{reporteData.resumen.total_evaluados}</span>
@@ -116,12 +118,12 @@ export default function Reportes() {
                 <span className="text-xl font-bold text-red-600 block mt-1 font-mono">{reporteData.resumen.total_rechazados}</span>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 text-center print:bg-white print:border-slate-300 col-span-1">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 text-center print:bg-white print:border-slate-300">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Copro Positivos</span>
                 <span className="text-xl font-bold text-amber-600 block mt-1 font-mono">{reporteData.resumen.total_copro_positivos}</span>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 text-center print:bg-white print:border-slate-300 col-span-1">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 text-center print:bg-white print:border-slate-300 col-span-2 sm:col-span-1">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">VIH Reactivos</span>
                 <span className="text-xl font-bold text-red-700 block mt-1 font-mono">{reporteData.resumen.total_vih_positivos}</span>
               </div>
@@ -136,7 +138,7 @@ export default function Reportes() {
                   Prevalencia de Parásitos Detectados
                 </h4>
 
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold font-mono">
@@ -169,8 +171,8 @@ export default function Reportes() {
                   Consolidado por Sectores / Ocupaciones
                 </h4>
 
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full text-left text-xs min-w-[280px]">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold font-mono">
                         <th className="py-2 px-4">Rubro Comercial</th>

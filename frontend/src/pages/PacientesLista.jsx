@@ -413,16 +413,18 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
 
                 <div className="text-xs text-slate-500">Vista previa:</div>
                 
-                <div style={{ transform: 'scale(1.4)', transformOrigin: 'top center', marginBottom: '90px' }}>
-                  <CarnetTemplate carnet={carnetToPrint} size={printSize} />
+                <div className="w-full flex justify-center overflow-x-auto py-2">
+                  <div className="scale-[0.8] sm:scale-110 md:scale-130 origin-top mb-16 sm:mb-24">
+                    <CarnetTemplate carnet={carnetToPrint} size={printSize} />
+                  </div>
                 </div>
               </div>
 
-              <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex justify-end gap-3">
-                <button onClick={() => setCarnetToPrint(null)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+              <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex flex-col-reverse sm:flex-row justify-end gap-2">
+                <button onClick={() => setCarnetToPrint(null)} className="w-full sm:w-auto text-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
                   Cerrar
                 </button>
-                <button onClick={() => window.print()} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                <button onClick={() => window.print()} className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
                   <Printer size={15} />
                   Proceder a Imprimir
                 </button>
@@ -516,8 +518,8 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
           <p className="text-[10px] text-slate-400 mt-1">Intente cambiar la palabra clave o limpie los filtros.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-left text-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-6">Foto</th>

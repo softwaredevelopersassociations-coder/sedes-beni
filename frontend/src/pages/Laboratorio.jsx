@@ -147,8 +147,8 @@ const [observaciones, setObservaciones] = useState('');
             <p className="text-[10px] text-slate-400 mt-1">Los trámites aparecerán aquí tras ser registrados en recepción.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <table className="w-full text-left text-xs">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-6">Foto</th>
@@ -236,7 +236,7 @@ const [observaciones, setObservaciones] = useState('');
       )}
 
       {/* Tarjeta Resumen del Paciente */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shrink-0">
           {sharedData.foto_url ? (
             <img src={sharedData.foto_url} alt="Paciente" className="w-full h-full object-cover" />
@@ -246,7 +246,7 @@ const [observaciones, setObservaciones] = useState('');
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 text-xs w-full">
           <div>
             <p className="text-slate-400 font-semibold uppercase text-[10px]">Paciente</p>
             <p className="font-bold text-slate-900 truncate">{sharedData.nombres} {sharedData.apellidos}</p>
@@ -489,18 +489,18 @@ const [observaciones, setObservaciones] = useState('');
         </div>
 
         {/* Botones de acción */}
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
           <button
             type="button"
             onClick={() => setSharedData(null)}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            className="w-full sm:w-auto text-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+            className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
           >
             {submitting ? 'Guardando...' : 'Registrar y Derivar a Medicina'}
             <ArrowRight size={14} />
