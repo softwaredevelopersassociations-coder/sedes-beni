@@ -173,7 +173,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {pendientes.map((p) => {
-                  const coproPos = p.coproparasitologico?.parasito !== 'Negativo';
+                  const coproTexto = p.coproparasitologico?.examen_microscopico || p.coproparasitologico?.parasito || 'Negativo';
+                  const coproPos = coproTexto && !/no se observan|negativo/i.test(coproTexto);
                   const vihPos = p.vih?.resultado === 'Reactivo';
                   return (
                     <tr key={p.tramite_id} className="hover:bg-slate-50 transition-colors">
@@ -194,13 +195,20 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                       </td>
                       <td className="py-3 px-6 font-medium text-slate-800">{p.ocupacion}</td>
                       <td className="py-3 px-6">
-                        <span className={`px-2 py-0.5 rounded-sm font-semibold text-[10px] ${
-                          coproPos 
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200' 
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                        }`}>
-                          {p.coproparasitologico?.parasito}
-                        </span>
+                        <div className="space-y-0.5">
+                          <span className={`px-2 py-0.5 rounded-sm font-semibold text-[10px] inline-block ${
+                            coproPos 
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                          }`}>
+                            {coproTexto}
+                          </span>
+                          {(p.coproparasitologico?.aspecto || p.coproparasitologico?.sangre_macroscopica) && (
+                            <p className="text-[9px] text-slate-400 truncate max-w-[180px]">
+                              Asp: {p.coproparasitologico?.aspecto || '—'} | Sgr: {p.coproparasitologico?.sangre_macroscopica || p.coproparasitologico?.sangre || 'Ausente'}
+                            </p>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-6">
                         <span className={`px-2 py-0.5 rounded-sm font-semibold text-[10px] ${
@@ -404,8 +412,16 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               </div>
 
               {/* Química */}
+              {/* Química */}
               <div className="space-y-2.5 text-xs">
-                <h5 className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Química Sanguínea</h5>
+                <div className="flex justify-between items-center">
+                  <h5 className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Química Sanguínea</h5>
+                  {sharedData.quimica_sanguinea?.grupo_sanguineo && (
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-800 font-bold text-[10px] rounded border border-blue-200">
+                      Grupo: {sharedData.quimica_sanguinea?.grupo_sanguineo}{sharedData.quimica_sanguinea?.factor_rh}
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
                     <span className="text-[9px] text-slate-400 font-bold block">GLUCOSA</span>
@@ -413,44 +429,74 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                       parseFloat(sharedData.quimica_sanguinea?.glucosa) > 110 || parseFloat(sharedData.quimica_sanguinea?.glucosa) < 70
                         ? 'text-red-600' : 'text-slate-800'
                     }`}>
-                      {sharedData.quimica_sanguinea?.glucosa}
+                      {sharedData.quimica_sanguinea?.glucosa || '—'}
                     </span>
                     <span className="text-[8px] text-slate-400 block mt-0.5">mg/dL</span>
                   </div>
 
                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
                     <span className="text-[9px] text-slate-400 font-bold block">UREA</span>
-                    <span className="font-bold text-slate-800 block mt-0.5">{sharedData.quimica_sanguinea?.urea}</span>
+                    <span className="font-bold text-slate-800 block mt-0.5">{sharedData.quimica_sanguinea?.urea || '—'}</span>
                     <span className="text-[8px] text-slate-400 block mt-0.5">mg/dL</span>
                   </div>
 
                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
                     <span className="text-[9px] text-slate-400 font-bold block">CREATININA</span>
-                    <span className="font-bold text-slate-800 block mt-0.5">{sharedData.quimica_sanguinea?.creatinina}</span>
+                    <span className="font-bold text-slate-800 block mt-0.5">{sharedData.quimica_sanguinea?.creatinina || '—'}</span>
                     <span className="text-[8px] text-slate-400 block mt-0.5">mg/dL</span>
                   </div>
                 </div>
               </div>
 
-              {/* Coproparasitológico */}
+              {/* Coproparasitológico Completo */}
               <div className="space-y-1.5 text-xs">
                 <h5 className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Coproparasitológico</h5>
-                <div className={`p-3 rounded-lg border flex flex-col gap-1 ${
-                  coproAlert ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'
+                <div className={`p-3 rounded-xl border flex flex-col gap-2.5 ${
+                  coproAlert ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50 border-slate-100'
                 }`}>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-medium">Parásito:</span>
-                    <span className={`font-bold ${coproAlert ? 'text-amber-700' : 'text-slate-800'}`}>
-                      {sharedData.coproparasitologico?.parasito}
+                  {/* Examen Macroscópico */}
+                  <div className="border-b border-slate-200/60 pb-2">
+                    <span className="text-[9px] font-bold text-amber-800 uppercase tracking-wider block mb-1.5">
+                      Examen Macroscópico
                     </span>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="bg-white/80 p-1.5 rounded border border-slate-200/50">
+                        <span className="text-slate-400 font-medium block text-[9px] uppercase">Aspecto:</span>
+                        <span className="font-semibold text-slate-800 break-words">
+                          {sharedData.coproparasitologico?.aspecto || sharedData.coproparasitologico?.consistencia || 'No especificado'}
+                        </span>
+                      </div>
+                      <div className="bg-white/80 p-1.5 rounded border border-slate-200/50">
+                        <span className="text-slate-400 font-medium block text-[9px] uppercase">Moco:</span>
+                        <span className="font-semibold text-slate-800 break-words">
+                          {sharedData.coproparasitologico?.moco || 'Ausente'}
+                        </span>
+                      </div>
+                      <div className="bg-white/80 p-1.5 rounded border border-slate-200/50">
+                        <span className="text-slate-400 font-medium block text-[9px] uppercase">Sangre:</span>
+                        <span className={`font-semibold break-words ${
+                          /presente|positivo|\+/i.test(sharedData.coproparasitologico?.sangre_macroscopica || sharedData.coproparasitologico?.sangre || '') 
+                            ? 'text-red-600 font-bold' 
+                            : 'text-slate-800'
+                        }`}>
+                          {sharedData.coproparasitologico?.sangre_macroscopica || sharedData.coproparasitologico?.sangre || 'Ausente'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-medium">Consistencia:</span>
-                    <span className="font-semibold text-slate-700">{sharedData.coproparasitologico?.consistencia}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-medium">Color:</span>
-                    <span className="font-semibold text-slate-700">{sharedData.coproparasitologico?.color}</span>
+
+                  {/* Examen Microscópico Directo */}
+                  <div>
+                    <span className="text-[9px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
+                      Examen Microscópico Directo
+                    </span>
+                    <div className={`p-2 rounded-lg border text-xs font-medium leading-relaxed ${
+                      coproAlert 
+                        ? 'bg-amber-100/60 border-amber-300 text-amber-900 font-bold' 
+                        : 'bg-white/80 border-slate-200/60 text-slate-800'
+                    }`}>
+                      {sharedData.coproparasitologico?.examen_microscopico || sharedData.coproparasitologico?.parasito || 'No se observan parásitos intestinales (Negativo)'}
+                    </div>
                   </div>
                 </div>
               </div>

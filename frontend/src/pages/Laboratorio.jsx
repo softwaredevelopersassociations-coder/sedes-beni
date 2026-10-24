@@ -85,7 +85,10 @@ const [observaciones, setObservaciones] = useState('');
         aspecto: copro_aspecto,
         moco: copro_moco,
         sangre_macroscopica: copro_sangre,
-        examen_microscopico: copro_microscopico
+        sangre: copro_sangre,
+        examen_microscopico: copro_microscopico,
+        parasito: copro_microscopico || 'Negativo',
+        consistencia: copro_aspecto
       },
       vih: {
         resultado: vihResultado,
