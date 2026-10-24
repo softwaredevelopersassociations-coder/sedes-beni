@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import SignaturePad from '../components/SignaturePad';
 import CarnetTemplate from '../components/CarnetTemplate';
 import {
   Stethoscope,
@@ -31,7 +30,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
   const [antecedentes, setAntecedentes] = useState('');
   const [diagnostico, setDiagnostico] = useState('Apto para la manipulación de alimentos.');
   const [aprobado, setAprobado] = useState(true);
-  const [firma, setFirma] = useState('');
+  const [nombreMedico, setNombreMedico] = useState('');
   const [printSize, setPrintSize] = useState('standard');
 
   const [submitting, setSubmitting] = useState(false);
@@ -93,8 +92,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
 
     if (!sharedData) return;
 
-    if (!firma) {
-      setError('Es obligatorio capturar la firma digitalizada del médico para emitir el carnet.');
+    if (!nombreMedico.trim()) {
+      setError('Por favor ingrese el nombre del médico evaluador.');
       return;
     }
 
@@ -105,7 +104,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
       antecedentes_patologicos: antecedentes,
       diagnostico,
       aprobado,
-      firma_medico: firma
+      firma_medico: nombreMedico.trim()
     };
 
     try {
@@ -324,7 +323,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                       codigo_carnet: emitResult.codigo_carnet,
                       fecha_emision: emitResult.fecha_emision,
                       fecha_vencimiento: emitResult.fecha_vencimiento,
-                      firma_medico: firma
+                      nombre_medico: nombreMedico,
+                      firma_medico: nombreMedico
                     }} 
                     size={printSize} 
                   />
@@ -361,7 +361,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               codigo_carnet: emitResult.codigo_carnet,
               fecha_emision: emitResult.fecha_emision,
               fecha_vencimiento: emitResult.fecha_vencimiento,
-              firma_medico: firma
+              nombre_medico: nombreMedico,
+              firma_medico: nombreMedico
             }} 
             size={printSize} 
           />
@@ -611,9 +612,19 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 />
               </div>
 
-              {/* Firma del Médico */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <SignaturePad onSave={setFirma} initialSignature={firma} />
+              {/* Nombre del Médico Evaluador */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  👨‍⚕️ Nombre del Médico Evaluador *
+                </label>
+                <input
+                  type="text"
+                  value={nombreMedico}
+                  onChange={(e) => setNombreMedico(e.target.value)}
+                  placeholder="Ej. Dr. Carlos Mendoza Roca"
+                  required
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 bg-white placeholder:font-normal placeholder:text-slate-400"
+                />
               </div>
 
               {/* Decisión de aprobación */}

@@ -333,31 +333,33 @@ export default function CarnetTemplate({ carnet, size = 'standard' }) {
           </div>
         </div>
 
-        {/* Firma Médico Evaluador */}
-        <div style={{ width: '42%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Nombre Médico Evaluador */}
+        <div style={{ width: '45%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div
             style={{
               height: `${8 * s}mm`,
               width: '100%',
-              position: 'relative',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'flex-end',
+              paddingBottom: `${0.8 * s}mm`,
             }}
           >
-            {carnet.firma_medico && (
-              <img
-                src={carnet.firma_medico}
-                alt="Firma Médico"
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  maxHeight: `${14 * s}mm`,
-                  maxWidth: '95%',
-                  objectFit: 'contain',
-                }}
-              />
-            )}
+            <span
+              style={{
+                fontSize: `${6.5 * s}pt`,
+                fontWeight: 'bold',
+                color: '#1a1a1a',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%',
+                lineHeight: 1.1,
+              }}
+            >
+              {carnet.nombre_medico || (typeof carnet.firma_medico === 'string' && !carnet.firma_medico.startsWith('data:') ? carnet.firma_medico : '') || '—'}
+            </span>
           </div>
           <div
             style={{
@@ -366,8 +368,6 @@ export default function CarnetTemplate({ carnet, size = 'standard' }) {
               textAlign: 'center',
               paddingTop: '2px',
               fontWeight: 600,
-              position: 'relative',
-              zIndex: 5,
             }}
           >
             MEDICO
