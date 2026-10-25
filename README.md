@@ -60,7 +60,7 @@ Para probar los flujos de roles en el sistema, utiliza las siguientes credencial
 | :--- | :--- | :--- | :--- |
 | **Administrador / Recepción** | `admin` | `admin123` | Registro de pacientes, cámara web, inicio de trámites, estadísticas generales, auditorías y gestión de usuarios. |
 | **Operador de Laboratorio** | `lab` | `lab123` | Carga de exámenes de química sanguínea, coproparasitológico e inmunología (VIH con consentimiento). |
-| **Médico Evaluador** | `Medico` | `medico123` | Evaluación física (piel, respiratorio, etc.), diagnóstico, firma interactiva, aprobación y emisión del carnet en formato PDF. |
+| **Médico Evaluador** | `Medico` | `medi123` | Evaluación física (piel, respiratorio, etc.), diagnóstico, firma interactiva, aprobación y emisión del carnet en formato PDF. |
 
 ---
 
@@ -81,7 +81,7 @@ Para probar los flujos de roles en el sistema, utiliza las siguientes credencial
     *   Selecciona el resultado de VIH y marca el checkbox obligatorio de **Consentimiento Informado**.
     *   Haz clic en **Registrar y Derivar**. El trámite cambia a `Pendiente Medicina`.
 3.  **Evaluación y Emisión (Médico)**:
-    *   Inicia sesión con `Medico` / `medico123`.
+    *   Inicia sesión con `Medico` / `medi123`.
     *   En el **Área Médica** verás al paciente derivado.
     *   Haz clic en **Evaluar Clínicamente**.
     *   Revisa los resultados bioquímicos y de laboratorio (el sistema te alertará en rojo si hay hallazgos anormales).
