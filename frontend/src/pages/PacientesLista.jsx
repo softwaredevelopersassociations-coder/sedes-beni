@@ -288,7 +288,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                         <h5 className="font-bold text-blue-600 text-[10px] uppercase tracking-wider">Resultados Bioquímicos y Parasitológicos</h5>
                         <ul className="space-y-1.5 text-slate-700">
                           <li>
-                            <span className="font-semibold text-slate-400">Sangre:</span> Glucosa {item.quimica_sanguinea?.glucosa || '—'} mg/dL, Urea {item.quimica_sanguinea?.urea || '—'} mg/dL, Creatinina {item.quimica_sanguinea?.creatinina || '—'} mg/dL
+                            <span className="font-semibold text-slate-400">Sangre:</span> Glicemia {item.quimica_sanguinea?.glucosa || '—'} mg/dL{item.quimica_sanguinea?.urea ? `, Urea ${item.quimica_sanguinea.urea} mg/dL` : ''}{item.quimica_sanguinea?.creatinina ? `, Creatinina ${item.quimica_sanguinea.creatinina} mg/dL` : ''}
                             {item.quimica_sanguinea?.grupo_sanguineo && (
                               <span className="ml-1 text-slate-500 font-medium">({item.quimica_sanguinea.grupo_sanguineo}{item.quimica_sanguinea.factor_rh})</span>
                             )}
@@ -309,9 +309,15 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                           )}
                           <li>
                             <span className="font-semibold text-slate-400">VIH Inmunología:</span>{' '}
-                            <strong className={item.vih?.resultado === 'Reactivo' ? 'text-red-700' : 'text-slate-800'}>
-                              {item.vih?.resultado || 'No Reactivo'}
-                            </strong>
+                            {item.vih?.realizado === false || item.vih?.resultado === 'No Realizado' ? (
+                              <span className="text-slate-500 italic text-[11px]">No realizado</span>
+                            ) : item.vih?.mostrar_en_registro_medico === false ? (
+                              <span className="text-purple-600 font-medium text-[11px]">Omitido en registro médico</span>
+                            ) : (
+                              <strong className={item.vih?.resultado === 'Reactivo' ? 'text-red-700' : 'text-slate-800'}>
+                                {item.vih?.resultado || 'No Reactivo'}
+                              </strong>
+                            )}
                           </li>
                           {Array.isArray(item.otros_analisis) && item.otros_analisis.length > 0 && (
                             <li className="text-[11px] text-slate-600">
@@ -342,7 +348,14 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                               <strong className="text-emerald-700">{item.firma_medico}</strong>
                             </li>
                           )}
-                          <li><span className="font-semibold text-slate-400">Examen Físico:</span> Piel {item.examen_fisico?.piel}, Dental {item.examen_fisico?.dental}</li>
+                          <li>
+                            <span className="font-semibold text-slate-400">Examen Físico:</span> Piel: {item.examen_fisico?.piel || '—'}, Resp: {item.examen_fisico?.respiratorio || '—'}, Card: {item.examen_fisico?.cardiovascular || '—'}, Dental: {item.examen_fisico?.dental || '—'}
+                            {item.examen_fisico?.otros && (
+                              <span className="block text-[11px] text-slate-500 mt-0.5">
+                                <strong>Otros hallazgos:</strong> {item.examen_fisico.otros}
+                              </span>
+                            )}
+                          </li>
                           <li><span className="font-semibold text-slate-400">Antecedentes:</span> {item.antecedentes_patologicos || 'Ninguno'}</li>
                           <li><span className="font-semibold text-slate-400">Diagnóstico:</span> <strong>{item.diagnostico}</strong></li>
                         </ul>
@@ -408,7 +421,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                 <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
                   <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="pacientePrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
-                    📄 Cartulina Estándar (10 × 7.5 cm)
+                    🪪 Kardex Oficial (7 × 9 cm)
                   </label>
                   <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="pacientePrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
@@ -466,7 +479,9 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
       {/* Formulario Filtros */}
       <form onSubmit={handleSearch} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
         <div className="sm:col-span-2">
-          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Nombre / C.I. / Empresa</label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            Nombre / C.I. / N° de Kardex / Empresa
+          </label>
           <div className="relative">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
               <Search size={14} />
@@ -475,7 +490,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ej. Juan Pérez o 9876543"
+              placeholder="Buscar por Nombre, Cédula o N° Kardex (ej. 5791)..."
               className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500"
             />
           </div>
@@ -530,6 +545,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                 <th className="py-3.5 px-6">Foto</th>
                 <th className="py-3.5 px-6">Paciente</th>
                 <th className="py-3.5 px-6">Cédula de Identidad</th>
+                <th className="py-3.5 px-6">N° Kardex</th>
                 <th className="py-3.5 px-6">Ocupación / Rubro</th>
                 <th className="py-3.5 px-6">Estado Último Carnet</th>
                 <th className="py-3.5 px-6 text-center">Acciones</th>
@@ -555,6 +571,11 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                   </td>
                   <td className="py-3 px-6 font-semibold font-mono text-slate-800">
                     {paciente.ci} {paciente.ci_exp}
+                  </td>
+                  <td className="py-3 px-6">
+                    <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
+                      {paciente.numero_carnet_fisico ? `N° ${paciente.numero_carnet_fisico}` : '—'}
+                    </span>
                   </td>
                   <td className="py-3 px-6 font-medium text-slate-750">{paciente.ocupacion}</td>
                   <td className="py-3 px-6">

@@ -25,7 +25,19 @@ router.get('/', verifyToken, async (req, res) => {
 
   if (query && query.trim() !== '') {
     const searchVal = `%${query.trim()}%`;
-    sql += ` AND (p.ci LIKE $${paramIndex} OR p.nombres ILIKE $${paramIndex} OR p.apellidos ILIKE $${paramIndex} OR p.empresa_trabajo ILIKE $${paramIndex})`;
+    sql += ` AND (
+      p.ci LIKE $${paramIndex} 
+      OR p.nombres ILIKE $${paramIndex} 
+      OR p.apellidos ILIKE $${paramIndex} 
+      OR p.empresa_trabajo ILIKE $${paramIndex}
+      OR t.numero_carnet_fisico ILIKE $${paramIndex}
+      OR t.codigo_carnet ILIKE $${paramIndex}
+      OR EXISTS (
+        SELECT 1 FROM tramites tr 
+        WHERE tr.paciente_id = p.id 
+        AND (tr.numero_carnet_fisico ILIKE $${paramIndex} OR tr.codigo_carnet ILIKE $${paramIndex})
+      )
+    )`;
     params.push(searchVal);
     paramIndex++;
   }

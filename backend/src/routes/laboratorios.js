@@ -27,14 +27,22 @@ router.post('/:tramiteId', verifyToken, checkRole(['admin', 'laboratorio']), asy
   const { tramiteId } = req.params;
   const { quimica_sanguinea, coproparasitologico, vih, observaciones, otros_analisis } = req.body;
 
-  if (!quimica_sanguinea || !coproparasitologico || !vih) {
-    return res.status(400).json({ error: 'Se deben proporcionar todos los resultados obligatorios.' });
+  if (!quimica_sanguinea || !coproparasitologico) {
+    return res.status(400).json({ error: 'Se deben proporcionar los resultados obligatorios (química sanguínea y coproparasitológico).' });
   }
 
-  // Validar consentimiento de VIH
-  if (vih.consentimiento !== true) {
+  // Validación de VIH (Opcional): Si se realiza la prueba, debe contar con consentimiento
+  const vihRealizado = vih && vih.realizado !== false && vih.resultado !== 'No Realizado';
+  if (vihRealizado && vih.consentimiento !== true) {
     return res.status(400).json({ error: 'Es obligatorio el consentimiento informado firmado para la prueba de VIH.' });
   }
+
+  const vihData = {
+    realizado: vihRealizado,
+    resultado: vihRealizado ? (vih?.resultado || 'No Reactivo') : 'No Realizado',
+    consentimiento: vihRealizado ? Boolean(vih?.consentimiento) : false,
+    mostrar_en_registro_medico: vih?.mostrar_en_registro_medico !== undefined ? Boolean(vih?.mostrar_en_registro_medico) : vihRealizado
+  };
 
   // Validar otros_analisis si se proporciona
   if (otros_analisis !== undefined) {
@@ -83,7 +91,7 @@ router.post('/:tramiteId', verifyToken, checkRole(['admin', 'laboratorio']), asy
       tramiteId,
       JSON.stringify(quimica_sanguinea),
       JSON.stringify(coproparasitologico),
-      JSON.stringify(vih),
+      JSON.stringify(vihData),
       req.user.id,
       observaciones
     ]);

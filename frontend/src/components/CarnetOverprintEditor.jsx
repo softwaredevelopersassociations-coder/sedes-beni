@@ -4,15 +4,15 @@ import carnetTemplateImg from '../assets/cardex/carnet_modelo.png';
 
 const STORAGE_KEY = 'carnet-overprint-template-v2';
 
-// Dimensiones de la tarjeta física del carnet/kardex (100mm de ancho x 67mm de alto aprox)
-export const CARD_WIDTH_MM = 100;
-export const CARD_HEIGHT_MM = 67;
+// Dimensiones oficiales de la tarjeta física del carnet/kardex (7x9 cm = 70mm ancho x 90mm alto)
+export const CARD_WIDTH_MM = 70;
+export const CARD_HEIGHT_MM = 90;
 
 // Centrado en hoja carta (215.9 x 279.4 mm):
-// Card Left: (215.9 - 100) / 2 = 57.95 mm
-// Card Top: (279.4 - 67) / 2 = 106.2 mm
-export const CARD_ORIGIN_X_MM = 57.95;
-export const CARD_ORIGIN_Y_MM = 106.2;
+// Card Left: (215.9 - 90) / 2 = 62.95 mm
+// Card Top: (279.4 - 70) / 2 = 104.7 mm
+export const CARD_ORIGIN_X_MM = 72.95;
+export const CARD_ORIGIN_Y_MM = 94.7;
 
 // Campos calibrados según el diseño físico del carnet de SEDES Beni guardado en assets:
 // No: esquina superior derecha

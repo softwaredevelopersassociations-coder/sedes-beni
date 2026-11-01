@@ -56,7 +56,7 @@ router.get('/laboratorio-resumen', verifyToken, async (req, res) => {
       SELECT 
         SUM(CASE WHEN vih->>'resultado' = 'No Reactivo' THEN 1 ELSE 0 END) as no_reactivos,
         SUM(CASE WHEN vih->>'resultado' = 'Reactivo' THEN 1 ELSE 0 END) as reactivos,
-        COUNT(*) as total
+        COUNT(CASE WHEN vih->>'resultado' IN ('No Reactivo', 'Reactivo') THEN 1 ELSE NULL END) as total
       FROM laboratorios
     `);
 

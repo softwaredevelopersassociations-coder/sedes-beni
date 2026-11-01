@@ -1,29 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import logo from '../assets/logo.jpeg';
 
 /**
  * CarnetTemplate — Réplica exacta del carnet sanitario físico oficial del SEDES Beni.
- * 
- * Distribución visual oficial:
- * ┌────────────────────────────────────────────────────────┐
- * │  [Escudo]  GOBIERNO AUTÓNOMO...        Nº ............ │
- * │            SEDES BENI               CARNET SANITARIO   │
- * │            UNIDAD SALUD AMBIENTAL                      │
- * │                      Nombre y Apellidos: ..............│
- * │  ┌──────────┐        ..................................│
- * │  │          │        Actividad: .......................│
- * │  │  FOTO    │        Lugar de Trabajo: ................│
- * │  │          │        Grupo Sanguíneo: ...  Factor Rh: .│
- * │  │ [00001]  │        Fecha de Validez: ................│
- * │  └──────────┘                                          │
- * │  ..................         ..................         │
- * │   RESP. DE UNIDAD                 MEDICO               │
- * └────────────────────────────────────────────────────────┘
+ * Formato oficial calibrado: 9 cm de anchura x 7 cm de altura (90mm x 70mm).
  */
-export default function CarnetTemplate({ carnet, size = 'standard' }) {
+export default function CarnetTemplate({ carnet, size = 'standard', defaultSide = 'both' }) {
   if (!carnet) return null;
 
-  // Extraer grupo sanguíneo del JSON o del objeto de química sanguínea
+  // Estado para alternar entre Frente (Anverso), Atrás (Reverso) o Ambos Lados
+  const [activeSide, setActiveSide] = useState(defaultSide);
+
+  // Extraer grupo sanguíneo
   const sangre = (() => {
     try {
       const q = typeof carnet.quimica_sanguinea === 'string'
@@ -38,30 +26,29 @@ export default function CarnetTemplate({ carnet, size = 'standard' }) {
     }
   })();
 
-  // Dimensiones según el soporte seleccionado
+  // Dimensiones oficiales exactas: 9 cm de anchura x 7 cm de altura (90 mm x 70 mm)
   const isCR80 = size === 'cr80';
-  const cardW = isCR80 ? '86mm' : '100mm';
-  const cardH = isCR80 ? '54mm' : '75mm';
-  const s = isCR80 ? 0.72 : 1; // Factor de escala para textos y espacios
+  const cardW = isCR80 ? '86mm' : '90mm';
+  const cardH = isCR80 ? '54mm' : '70mm';
+  const s = isCR80 ? 0.75 : 0.96;
 
-  // Formatear el número de carnet sin desbordar el casillero
-  // Se prioriza el Número de Carnet Físico (Kardex) ingresado en el registro del cliente
+  // Formatear el número de carnet oficial
   const numCarnet = (() => {
     const fisico = carnet.numero_carnet_fisico || carnet.carnet_fisico;
     if (fisico && String(fisico).trim()) {
       const limpio = String(fisico).trim();
-      return /^\d+$/.test(limpio) && limpio.length < 5 ? limpio.padStart(5, '0') : limpio;
+      return /^\d+$/.test(limpio) && limpio.length < 6 ? limpio.padStart(6, '0') : limpio;
     }
     if (!carnet.codigo_carnet) return '000001';
     const match = String(carnet.codigo_carnet).match(/\d+$/);
     if (match) {
-      return match[0].padStart(5, '0');
+      return match[0].padStart(6, '0');
     }
     const clean = String(carnet.codigo_carnet).replace(/[^0-9]/g, '');
-    return clean ? clean.slice(-6).padStart(5, '0') : '000001';
+    return clean ? clean.slice(-6).padStart(6, '0') : '000001';
   })();
 
-  // Formatear lugar de trabajo / mercado
+  // Formatear lugar de trabajo
   const lugarTrabajo = [
     carnet.empresa_trabajo,
     carnet.mercado ? `(${carnet.mercado})` : ''
@@ -78,346 +65,277 @@ export default function CarnetTemplate({ carnet, size = 'standard' }) {
     }
   })();
 
-  return (
-    <div
-      className="carnet-oficial"
-      style={{
-        width: cardW,
-        height: cardH,
-        fontFamily: "'Arial', 'Helvetica Neue', sans-serif",
-        backgroundColor: '#F5EDCE',
-        border: '1px solid #c5b88a',
-        position: 'relative',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-        padding: `${3 * s}mm`,
-        color: '#1a1a1a',
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact',
-        pageBreakInside: 'avoid',
-        breakInside: 'avoid',
-      }}
-    >
-      {/* ── FILA SUPERIOR: Escudo + Institución | Nº + Título ── */}
-      <div style={{ display: 'flex', width: '100%', marginBottom: `${2 * s}mm` }}>
-        {/* Columna izquierda: Escudo + Textos Institucionales */}
-        <div style={{ width: '38%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img
-            src={logo}
-            alt="Escudo SEDES"
-            style={{
-              width: `${14 * s}mm`,
-              height: `${14 * s}mm`,
-              objectFit: 'contain',
-              mixBlendMode: 'multiply',
-            }}
-          />
-          <div
-            style={{
-              textAlign: 'center',
-              fontSize: `${5 * s}pt`,
-              lineHeight: 1.15,
-              marginTop: `${1 * s}mm`,
-              fontWeight: 600,
-            }}
-          >
-            GOBIERNO AUTÓNOMO DPTO. BENI<br />
-            SERVICIO DEPARTAMENTAL DE SALUD - SEDES BENI<br />
-            UNIDAD SALUD AMBIENTAL
-          </div>
-        </div>
+  const nombreCompleto = `${carnet.nombres || ''} ${carnet.apellidos || ''}`.trim().toUpperCase();
+  const medicoNombre = carnet.nombre_medico || (typeof carnet.firma_medico === 'string' && !carnet.firma_medico.startsWith('data:') ? carnet.firma_medico : '') || '';
 
-        {/* Columna derecha: Nº Talonario + Título Oficial */}
-        <div
-          style={{
-            width: '62%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            paddingTop: `${1 * s}mm`,
-          }}
+  // Contenedor base de la tarjeta (90x70 mm)
+  const cardStyle = {
+    width: cardW,
+    height: cardH,
+    minWidth: cardW,
+    maxWidth: cardW,
+    minHeight: cardH,
+    maxHeight: cardH,
+    fontFamily: "'Arial', 'Helvetica Neue', sans-serif",
+    backgroundColor: '#FDE047', // Amarillo oficial de cartulina física
+    border: '1.2px solid #ca8a04',
+    position: 'relative',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+    padding: '2.5mm 3.2mm 2.5mm 3.2mm',
+    color: '#000000',
+    WebkitPrintColorAdjust: 'exact',
+    printColorAdjust: 'exact',
+    pageBreakInside: 'avoid',
+    breakInside: 'avoid',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      {/* Selector de vistas (Oculto al imprimir) */}
+      <div className="print:hidden flex items-center bg-white border border-slate-200 rounded-xl p-1 gap-1 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setActiveSide('front')}
+          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            activeSide === 'front' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          }`}
         >
-          <div
-            style={{
-              color: '#cc0000',
-              fontWeight: 'bold',
-              fontSize: `${13 * s}pt`,
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: '2px',
-            }}
-          >
-            <span>Nº</span>
-            <span
-              style={{
-                borderBottom: '2px dotted #cc0000',
-                minWidth: `${24 * s}mm`,
-                textAlign: 'center',
-                letterSpacing: '1.5px',
-                fontFamily: "'Courier New', monospace",
-                fontWeight: 'bold',
-              }}
-            >
-              {numCarnet}
-            </span>
-          </div>
-          <div
-            style={{
-              fontWeight: 'bold',
-              fontSize: `${14 * s}pt`,
-              marginTop: `${1.5 * s}mm`,
-              letterSpacing: '0.5px',
-              textAlign: 'center',
-            }}
-          >
-            CARNET SANITARIO
-          </div>
-        </div>
+          Anverso (Frente)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSide('back')}
+          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            activeSide === 'back' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Reverso (Atrás)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSide('both')}
+          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            activeSide === 'both' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Ambos Lados (9 × 7 cm)
+        </button>
       </div>
 
-      {/* ── FILA CENTRAL: Foto a la izquierda | Datos a la derecha ── */}
-      <div style={{ display: 'flex', width: '100%', gap: `${2 * s}mm` }}>
-        {/* Marco de la Foto del Paciente */}
-        <div style={{ width: '30%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div
-            style={{
-              width: `${24 * s}mm`,
-              height: `${30 * s}mm`,
-              border: '1px solid #888',
-              backgroundColor: '#fff',
-              position: 'relative',
-              padding: `${1.2 * s}mm`,
-              boxSizing: 'border-box',
-            }}
-          >
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                border: '1px solid #ccc',
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#fafafa',
-              }}
-            >
-              {carnet.foto_url ? (
+      {/* ZONA DE CARNETS (ANVERSO / REVERSO) */}
+      <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
+        
+        {/* ==================== ANVERSO (FRENTE) 90 x 70 mm ==================== */}
+        {(activeSide === 'front' || activeSide === 'both') && (
+          <div className="carnet-oficial carnet-anverso" style={cardStyle}>
+            
+            {/* 1. Encabezado Institucional (Alto: ~12mm) */}
+            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2mm' }}>
+              {/* Escudo + Textos Institucionales */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5mm', width: '56%' }}>
                 <img
-                  src={carnet.foto_url}
-                  alt="Foto"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  src={logo}
+                  alt="Escudo SEDES"
+                  style={{
+                    width: `${12 * s}mm`,
+                    height: `${12 * s}mm`,
+                    objectFit: 'contain',
+                    mixBlendMode: 'multiply',
+                    flexShrink: 0
+                  }}
                 />
-              ) : (
-                <span style={{ fontSize: `${6 * s}pt`, color: '#aaa', fontWeight: 'bold' }}>SIN FOTO</span>
-              )}
+                <div style={{ textAlign: 'left', fontSize: `${4.5 * s}pt`, lineHeight: 1.15, fontWeight: 700, color: '#000' }}>
+                  GOBIERNO AUTÓNOMO DEPARTAMENTAL DEL BENI<br />
+                  <span style={{ fontSize: `${4.4 * s}pt`, color: '#166534', fontWeight: 800 }}>SERVICIO DEPARTAMENTAL DE SALUD - SEDES BENI</span><br />
+                  UNIDAD SALUD AMBIENTAL
+                </div>
+              </div>
+
+              {/* Nº en Rojo + CARNET SANITARIO */}
+              <div style={{ width: '44%', textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <div style={{ color: '#dc2626', fontWeight: 900, fontSize: `${10 * s}pt`, display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                  <span style={{ fontSize: `${8 * s}pt` }}>Nº</span>
+                  <span style={{ fontFamily: "'Courier New', monospace", letterSpacing: '0.8px' }}>
+                    {numCarnet}
+                  </span>
+                </div>
+                <div style={{ fontWeight: 900, fontSize: `${9 * s}pt`, letterSpacing: '0.3px', color: '#000', marginTop: '0.5px' }}>
+                  CARNET SANITARIO
+                </div>
+              </div>
             </div>
 
-            {/* Número en el pie de la foto */}
+            {/* 2. Cuerpo Central: Foto a la izquierda | Datos oficiales a la derecha (Alto: ~35mm) */}
+            <div style={{ display: 'flex', width: '100%', gap: '2.5mm', alignItems: 'flex-start' }}>
+              
+              {/* Columna Izquierda: Recuadro Foto (23 x 27 mm) */}
+              <div style={{ width: `${23 * s}mm`, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: `${23 * s}mm`,
+                    height: `${28 * s}mm`,
+                    border: '1.5px solid #000',
+                    backgroundColor: '#fff',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {carnet.foto_url ? (
+                    <img
+                      src={carnet.foto_url}
+                      alt="Foto"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: `${5.5 * s}pt`, color: '#666', fontWeight: 'bold' }}>FOTO</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Columna Derecha: Campos Oficiales Punteados */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1mm', fontSize: `${6.5 * s}pt`, color: '#000', minWidth: 0 }}>
+                
+                {/* Nombre y Apellidos */}
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Nombre y Apellidos:</span>
+                  <span style={{ flex: 1, borderBottom: '1px dotted #000', marginLeft: '2px', fontWeight: 800, fontSize: `${6.8 * s}pt`, paddingLeft: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {nombreCompleto || '—'}
+                  </span>
+                </div>
+                {/* Segunda línea de continuidad */}
+                <div style={{ borderBottom: '1px dotted #000', width: '100%', height: '1.5mm' }} />
+
+                {/* Actividad */}
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Actividad:</span>
+                  <span style={{ flex: 1, borderBottom: '1px dotted #000', marginLeft: '2px', fontWeight: 800, paddingLeft: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {(carnet.ocupacion || '').toUpperCase() || '—'}
+                  </span>
+                </div>
+
+                {/* Lugar de Trabajo */}
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Lugar de Trabajo:</span>
+                  <span style={{ flex: 1, borderBottom: '1px dotted #000', marginLeft: '2px', fontWeight: 800, paddingLeft: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {lugarTrabajo}
+                  </span>
+                </div>
+
+                {/* Grupo Sanguíneo y Factor Rh */}
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Grupo Sanguineo:</span>
+                  <span style={{ flex: 1, borderBottom: '1px dotted #000', marginLeft: '2px', marginRight: '3px', fontWeight: 800, textAlign: 'center' }}>
+                    {sangre.grupo && sangre.grupo !== '—' ? `"${sangre.grupo}"` : '—'}
+                  </span>
+                  <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Factor Rh:</span>
+                  <span style={{ minWidth: `${9 * s}mm`, borderBottom: '1px dotted #000', marginLeft: '2px', fontWeight: 800, textAlign: 'center' }}>
+                    {sangre.rh && sangre.rh !== '—' ? `(${sangre.rh})` : '—'}
+                  </span>
+                </div>
+
+                {/* Fecha de Validez */}
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Fecha de validez:</span>
+                  <span style={{ flex: 1, borderBottom: '1px dotted #000', marginLeft: '2px', fontWeight: 800, paddingLeft: '3px' }}>
+                    {fechaValidez}
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            {/* 3. Pie: RESP. DE UNIDAD EN MEDIO (Alto: ~14mm) */}
             <div
               style={{
                 position: 'absolute',
-                bottom: `${2 * s}mm`,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: '#fff',
-                border: '1px solid #555',
-                padding: '1px 3px',
-                fontSize: `${5.5 * s}pt`,
-                fontWeight: 'bold',
-                letterSpacing: '1px',
-                fontFamily: "'Courier New', monospace",
-                textAlign: 'center',
-                zIndex: 2,
-                whiteSpace: 'nowrap',
+                bottom: '2.5mm',
+                left: '0',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center'
               }}
             >
-              {numCarnet}
+              <div
+                style={{
+                  width: '46mm',
+                  borderBottom: '1.2px dotted #000',
+                  height: '4mm',
+                  marginBottom: '1.5px'
+                }}
+              />
+              <span
+                style={{
+                  fontSize: `${5.8 * s}pt`,
+                  fontWeight: 800,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  color: '#000'
+                }}
+              >
+                RESP. DE UNIDAD
+              </span>
+            </div>
+
+          </div>
+        )}
+
+        {/* ==================== REVERSO (ATRÁS) 90 x 70 mm ==================== */}
+        {(activeSide === 'back' || activeSide === 'both') && (
+          <div className="carnet-oficial carnet-reverso" style={cardStyle}>
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', position: 'relative' }}>
+              
+              {/* Título IMPORTANTE */}
+              <div style={{ textAlign: 'center', marginTop: '2.5mm' }}>
+                <h3 style={{ fontSize: `${10.5 * s}pt`, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase', color: '#000', margin: 0 }}>
+                  IMPORTANTE
+                </h3>
+              </div>
+
+              {/* Texto Legal Oficial */}
+              <div style={{ padding: '0 3mm', marginTop: '4mm', textAlign: 'justify', lineHeight: 1.35, fontSize: `${7 * s}pt`, fontWeight: 700, color: '#111' }}>
+                Todo persona que fabrique, manipule, expenda alimentos, bebidas o que tenga contacto con el público esta obligado a recabar este documento de acuerdo al <strong>CODIGO DE SALUD</strong>.
+              </div>
+
+              {/* Firma Médico al pie (Centrado en medio) */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '3mm',
+                  left: '0',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center'
+                }}
+              >
+                {medicoNombre ? (
+                  <span style={{ fontSize: `${6.2 * s}pt`, fontWeight: 800, color: '#000', marginBottom: '1px', textTransform: 'uppercase' }}>
+                    {medicoNombre}
+                  </span>
+                ) : (
+                  <div style={{ height: '4mm' }} />
+                )}
+                <div style={{ width: '48mm', borderBottom: '1.2px dotted #000', height: medicoNombre ? '1.5mm' : '4.5mm', marginBottom: '1.5px' }} />
+                <span style={{ fontSize: `${5.8 * s}pt`, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#000' }}>
+                  FIRMA MÉDICO
+                </span>
+              </div>
+
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Datos demográficos y de validez */}
-        <div
-          style={{
-            width: '70%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-start',
-            fontSize: `${7.5 * s}pt`,
-            lineHeight: 1.2,
-          }}
-        >
-          {/* Nombre y Apellidos */}
-          <CarnetField
-            label="Nombre y Apellidos:"
-            value={`${carnet.nombres || ''} ${carnet.apellidos || ''}`.trim().toUpperCase()}
-            s={s}
-          />
-          <DottedLine s={s} />
-
-          {/* Actividad / Ocupación */}
-          <CarnetField
-            label="Actividad:"
-            value={(carnet.ocupacion || '').toUpperCase() || '—'}
-            s={s}
-          />
-
-          {/* Lugar de Trabajo */}
-          <CarnetField
-            label="Lugar de Trabajo:"
-            value={lugarTrabajo}
-            s={s}
-          />
-
-          {/* Grupo Sanguíneo + Factor Rh */}
-          <div style={{ display: 'flex', alignItems: 'baseline', marginTop: `${1.2 * s}mm` }}>
-            <span style={{ whiteSpace: 'nowrap' }}>Grupo Sanguíneo:</span>
-            <span
-              style={{
-                flex: 1,
-                borderBottom: '1.5px dotted #333',
-                textAlign: 'center',
-                fontWeight: 'bold',
-                marginLeft: '2px',
-                marginRight: '4px',
-                paddingBottom: '1px',
-              }}
-            >
-              {sangre.grupo && sangre.grupo !== '—' ? `"${sangre.grupo}"` : '—'}
-            </span>
-            <span style={{ whiteSpace: 'nowrap' }}>Factor Rh:</span>
-            <span
-              style={{
-                borderBottom: '1.5px dotted #333',
-                textAlign: 'center',
-                fontWeight: 'bold',
-                marginLeft: '2px',
-                minWidth: `${8 * s}mm`,
-                paddingBottom: '1px',
-              }}
-            >
-              {sangre.rh && sangre.rh !== '—' ? `(${sangre.rh})` : '—'}
-            </span>
-          </div>
-
-          {/* Fecha de Validez */}
-          <CarnetField
-            label="Fecha de Validez:"
-            value={fechaValidez}
-            s={s}
-          />
-        </div>
-      </div>
-
-      {/* ── FILA INFERIOR: Firmas Oficiales ── */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: `${2 * s}mm`,
-          left: `${3 * s}mm`,
-          right: `${3 * s}mm`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          fontSize: `${6 * s}pt`,
-        }}
-      >
-        {/* Firma Resp. de Unidad */}
-        <div style={{ width: '42%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ height: `${8 * s}mm`, width: '100%' }} />
-          <div
-            style={{
-              borderTop: '1.5px dotted #333',
-              width: '100%',
-              textAlign: 'center',
-              paddingTop: '2px',
-              fontWeight: 600,
-            }}
-          >
-            RESP. DE UNIDAD
-          </div>
-        </div>
-
-        {/* Nombre Médico Evaluador */}
-        <div style={{ width: '45%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div
-            style={{
-              height: `${8 * s}mm`,
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'flex-end',
-              paddingBottom: `${0.8 * s}mm`,
-            }}
-          >
-            <span
-              style={{
-                fontSize: `${6.5 * s}pt`,
-                fontWeight: 'bold',
-                color: '#1a1a1a',
-                textAlign: 'center',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%',
-                lineHeight: 1.1,
-              }}
-            >
-              {carnet.nombre_medico || (typeof carnet.firma_medico === 'string' && !carnet.firma_medico.startsWith('data:') ? carnet.firma_medico : '') || '—'}
-            </span>
-          </div>
-          <div
-            style={{
-              borderTop: '1.5px dotted #333',
-              width: '100%',
-              textAlign: 'center',
-              paddingTop: '2px',
-              fontWeight: 600,
-            }}
-          >
-            MEDICO
-          </div>
-        </div>
       </div>
     </div>
-  );
-}
-
-/** Línea de campo con etiqueta y valor rellenado con puntos */
-function CarnetField({ label, value, s = 1 }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', marginTop: `${1.2 * s}mm` }}>
-      <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
-      <span
-        style={{
-          flex: 1,
-          borderBottom: '1.5px dotted #333',
-          textAlign: 'center',
-          fontWeight: 'bold',
-          marginLeft: '2px',
-          paddingBottom: '1px',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-/** Línea punteada de continuidad (segunda línea de Nombre) */
-function DottedLine({ s = 1 }) {
-  return (
-    <div
-      style={{
-        borderBottom: '1.5px dotted #333',
-        width: '100%',
-        height: `${2.5 * s}mm`,
-        marginTop: `${0.5 * s}mm`,
-      }}
-    />
   );
 }

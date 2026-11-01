@@ -8,7 +8,7 @@ const { logAuditoria } = require('../utils/logger');
 router.get('/pendientes', verifyToken, checkRole(['admin', 'medico']), async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT t.id as tramite_id, t.tipo_tramite, t.costo_bs, t.fecha_inicio, t.numero_carnet_fisico,
+      SELECT t.id as tramite_id, t.tipo_tramite, t.costo_bs, t.fecha_inicio, t.numero_carnet_fisico, t.codigo_carnet,
              p.id as paciente_id, p.ci, p.ci_exp, p.nombres, p.apellidos, p.ocupacion, p.empresa_trabajo, p.mercado, p.foto_url,
              p.fecha_nacimiento, p.genero,
              l.id as lab_id, l.quimica_sanguinea, l.coproparasitologico, l.vih, l.observaciones as lab_observaciones, l.fecha_registro as lab_fecha,

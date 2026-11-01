@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Printer, AlertCircle, FileCheck2, Settings2, X } from 'lucide-react';
+import { Printer, AlertCircle, FileCheck2, Settings2, X, Search } from 'lucide-react';
 import CarnetTemplate from '../components/CarnetTemplate';
 
 export default function EmisionCarnets() {
   const [carnets, setCarnets] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -32,6 +33,21 @@ export default function EmisionCarnets() {
   const handlePrint = () => {
     window.print();
   };
+
+  const carnetsFiltrados = carnets.filter((c) => {
+    if (!busqueda.trim()) return true;
+    const term = busqueda.toLowerCase().trim();
+    const nombreCompleto = `${c.nombres || ''} ${c.apellidos || ''}`.toLowerCase();
+    const ci = `${c.ci || ''}`.toLowerCase();
+    const kardex = `${c.numero_carnet_fisico || ''}`.toLowerCase();
+    const codigo = `${c.codigo_carnet || ''}`.toLowerCase();
+    return (
+      nombreCompleto.includes(term) ||
+      ci.includes(term) ||
+      kardex.includes(term) ||
+      codigo.includes(term)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -61,47 +77,89 @@ export default function EmisionCarnets() {
             <p className="text-xs font-bold text-slate-500">No hay carnets pendientes de emisión.</p>
             <p className="text-[10px] text-slate-400 mt-1">Los carnets aparecerán aquí cuando un médico apruebe un trámite.</p>
           </div>
-        ) : carnets.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[600px]">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-6">Código Carnet</th>
-                  <th className="py-3.5 px-6">Paciente</th>
-                  <th className="py-3.5 px-6">Cédula</th>
-                  <th className="py-3.5 px-6">Válido Hasta</th>
-                  <th className="py-3.5 px-6 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {carnets.map(c => (
-                  <tr key={c.tramite_id} className="hover:bg-slate-50">
-                    <td className="py-3 px-6">
-                      {c.numero_carnet_fisico && (
-                        <span className="font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px] inline-block mb-1">
-                          Nº {c.numero_carnet_fisico}
-                        </span>
-                      )}
-                      <p className="font-mono text-slate-500 text-[10px]">{c.codigo_carnet}</p>
-                    </td>
-                    <td className="py-3 px-6 font-semibold">{c.nombres} {c.apellidos}</td>
-                    <td className="py-3 px-6 font-mono">{c.ci} {c.ci_exp}</td>
-                    <td className="py-3 px-6">
-                      {c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-ES') : '—'}
-                    </td>
-                    <td className="py-3 px-6 text-center">
-                      <button
-                        onClick={() => setSelectedCarnet(c)}
-                        className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-950 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 mx-auto"
-                      >
-                        <Printer size={12} />
-                        Ver / Imprimir
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        ) : (
+          <div className="space-y-4">
+            {/* Buscador de Emisión de Carnets */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                  <Search size={15} />
+                </span>
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por N° Kardex, Código Digital, Nombre o C.I...."
+                  className="w-full pl-10 pr-8 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500 bg-white"
+                />
+                {busqueda && (
+                  <button
+                    type="button"
+                    onClick={() => setBusqueda('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div className="text-xs font-semibold text-slate-500 whitespace-nowrap px-1">
+                {carnetsFiltrados.length} {carnetsFiltrados.length === 1 ? 'carnet encontrado' : 'carnets encontrados'}
+              </div>
+            </div>
+
+            {carnetsFiltrados.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500 text-xs">
+                No se encontraron carnets que coincidan con &quot;<span className="font-semibold text-slate-800">{busqueda}</span>&quot;.
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
+                      <th className="py-3.5 px-6">N° Kardex / Carnet</th>
+                      <th className="py-3.5 px-6">Paciente</th>
+                      <th className="py-3.5 px-6">Cédula</th>
+                      <th className="py-3.5 px-6">Válido Hasta</th>
+                      <th className="py-3.5 px-6 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {carnetsFiltrados.map((c) => (
+                      <tr key={c.tramite_id} className="hover:bg-slate-50">
+                        <td className="py-3 px-6">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] font-bold text-slate-400">Kardex:</span>
+                              <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[11px]">
+                                {c.numero_carnet_fisico ? `N° ${c.numero_carnet_fisico}` : '—'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] font-bold text-slate-400">Digital:</span>
+                              <span className="font-mono text-slate-500 text-[10px]">{c.codigo_carnet}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-6 font-semibold">{c.nombres} {c.apellidos}</td>
+                        <td className="py-3 px-6 font-mono">{c.ci} {c.ci_exp}</td>
+                        <td className="py-3 px-6">
+                          {c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-ES') : '—'}
+                        </td>
+                        <td className="py-3 px-6 text-center">
+                          <button
+                            onClick={() => setSelectedCarnet(c)}
+                            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-950 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 mx-auto"
+                          >
+                            <Printer size={12} />
+                            Ver / Imprimir
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -125,7 +183,7 @@ export default function EmisionCarnets() {
               <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
                 <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                   <input type="radio" name="size" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
-                  📄 Cartulina Estándar (10 × 7.5 cm)
+                  🪪 Kardex Oficial (9 × 7 cm)
                 </label>
                 <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                   <input type="radio" name="size" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
