@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Search, Users, Eye, History, PlusCircle, AlertCircle, Calendar, ArrowLeft, Printer, Edit3 } from 'lucide-react';
+import { 
+  Search, Users, Eye, History, PlusCircle, AlertCircle, Calendar, ArrowLeft, Printer, 
+  Edit3, Settings2, X, RefreshCw, AlertTriangle, CheckCircle2, Clock, Check
+} from 'lucide-react';
 import CarnetTemplate from '../components/CarnetTemplate';
-import { Settings2, X } from 'lucide-react';
 
 export default function PacientesLista({ onNavigate, setSharedData }) {
   const [query, setQuery] = useState('');
   const [mercado, setMercado] = useState('');
   const [ocupacion, setOcupacion] = useState('');
+  const [filtroTab, setFiltroTab] = useState('todos'); // 'todos' | 'vencidos' | 'vigentes' | 'en_tramite'
   
   const [pacientes, setPacientes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Detalles de un paciente seleccionado
   const [selectedPaciente, setSelectedPaciente] = useState(null);
@@ -22,10 +26,11 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
   const [carnetToPrint, setCarnetToPrint] = useState(null);
   const [printSize, setPrintSize] = useState('standard');
 
-  // Nuevo Trámite Form para paciente existente
-  const [showNewTramiteModal, setShowNewTramiteModal] = useState(false);
-  const [newTramiteType, setNewTramiteType] = useState('Renovación');
-  const [submittingTramite, setSubmittingTramite] = useState(false);
+  // Modal de Renovación de Carnet
+  const [renovacionPaciente, setRenovacionPaciente] = useState(null);
+  const [renovacionKardex, setRenovacionKardex] = useState('');
+  const [renovacionCosto, setRenovacionCosto] = useState('30.00');
+  const [submittingRenovacion, setSubmittingRenovacion] = useState(false);
 
   const fetchPacientes = async () => {
     setLoading(true);
@@ -54,7 +59,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
     setQuery('');
     setMercado('');
     setOcupacion('');
-    // Cargar sin filtros
+    setFiltroTab('todos');
     setLoading(true);
     api.pacientes.list({})
       .then(data => setPacientes(data))
@@ -77,35 +82,189 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
     }
   };
 
-  const handleOpenNewTramite = () => {
-    setShowNewTramiteModal(true);
+  // Apertura del modal de renovación
+  const handleOpenRenovacion = (paciente) => {
+    setRenovacionPaciente(paciente);
+    setRenovacionKardex('');
+    setRenovacionCosto('30.00');
+    setError('');
   };
 
-  const handleCreateTramite = async (e) => {
+  // Confirmar inicio de renovación
+  const handleConfirmRenovacion = async (e) => {
     e.preventDefault();
-    if (!selectedPaciente) return;
+    if (!renovacionPaciente) return;
 
-    setSubmittingTramite(true);
+    if (renovacionKardex) {
+      const trimmed = renovacionKardex.trim();
+      if (trimmed.startsWith('-') || /^-\d+$/.test(trimmed)) {
+        setError('El número de carnet físico no puede ser un número negativo.');
+        return;
+      }
+    }
+
+    setSubmittingRenovacion(true);
     setError('');
+    setSuccess('');
 
     try {
-      await api.pacientes.openTramite(selectedPaciente.id, {
-        tipo_tramite: newTramiteType
+      await api.pacientes.openTramite(renovacionPaciente.id, {
+        tipo_tramite: 'Renovación',
+        costo_bs: parseFloat(renovacionCosto) || 30.00,
+        numero_carnet_fisico: renovacionKardex.trim().toUpperCase() || null
       });
-      setShowNewTramiteModal(false);
-      
-      // Recargar historial del paciente
-      handleViewDetails(selectedPaciente);
-      
-      // Mensaje rápido
-      alert('Trámite iniciado con éxito. El paciente ha sido enviado a la cola de Laboratorio.');
+
+      const pacNombre = `${renovacionPaciente.nombres} ${renovacionPaciente.apellidos}`;
+      setRenovacionPaciente(null);
+
+      // Si estábamos viendo los detalles de este paciente, recargarlos
+      if (selectedPaciente && selectedPaciente.id === renovacionPaciente.id) {
+        handleViewDetails(selectedPaciente);
+      }
+
+      // Recargar lista general
+      await fetchPacientes();
+
+      setSuccess(`¡Trámite de Renovación iniciado con éxito para ${pacNombre}! Ha sido derivado a la bandeja de Laboratorio.`);
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Error al iniciar el trámite.');
+      setError(err.message || 'Error al iniciar la renovación del carnet.');
     } finally {
-      setSubmittingTramite(false);
+      setSubmittingRenovacion(false);
     }
   };
+
+  // Helper para calcular el estado de vigencia y expiración del carnet
+  const getEstadoCarnetInfo = (paciente) => {
+    if (!paciente) return { estado: 'desconocido', badge: null, isVencido: false, canRenovar: false };
+
+    // 1. Trámite activo en laboratorio o medicina
+    if (paciente.estado === 'Pendiente Laboratorio') {
+      return {
+        estado: 'en_tramite',
+        badge: (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-300 rounded-lg font-semibold text-[11px]">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            EN LABORATORIO
+          </span>
+        ),
+        isVencido: false,
+        canRenovar: false,
+        motivoNoRenovar: 'El paciente ya tiene un trámite activo en Laboratorio.'
+      };
+    }
+    if (paciente.estado === 'Pendiente Medicina') {
+      return {
+        estado: 'en_tramite',
+        badge: (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-300 rounded-lg font-semibold text-[11px]">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+            EN ÁREA MÉDICA
+          </span>
+        ),
+        isVencido: false,
+        canRenovar: false,
+        motivoNoRenovar: 'El paciente ya tiene un trámite activo en Consulta Médica.'
+      };
+    }
+
+    // 2. Fecha de vencimiento
+    const fechaVenc = paciente.fecha_vencimiento || paciente.ultima_fecha_vencimiento;
+    if (!fechaVenc) {
+      return {
+        estado: 'sin_carnet',
+        badge: (
+          <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-md text-[11px] font-medium">
+            Sin carnet previo
+          </span>
+        ),
+        isVencido: false,
+        canRenovar: true
+      };
+    }
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const venc = new Date(fechaVenc);
+    venc.setHours(0, 0, 0, 0);
+    const diffTime = venc.getTime() - hoy.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      const diasVencido = Math.abs(diffDays);
+      return {
+        estado: 'vencido',
+        badge: (
+          <span className="inline-flex flex-col items-start gap-0.5 px-2.5 py-1 bg-red-100/90 text-red-800 border border-red-300 rounded-lg text-[11px] font-bold shadow-2xs">
+            <span className="flex items-center gap-1 text-red-900">
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block"></span>
+              🔴 VENCIDO
+            </span>
+            <span className="text-[10px] text-red-700 font-normal">
+              El {venc.toLocaleDateString('es-ES')} ({diasVencido} d. atrás)
+            </span>
+          </span>
+        ),
+        isVencido: true,
+        canRenovar: true,
+        fechaVenc: venc.toLocaleDateString('es-ES'),
+        diasVencido
+      };
+    } else if (diffDays <= 30) {
+      return {
+        estado: 'por_vencer',
+        badge: (
+          <span className="inline-flex flex-col items-start gap-0.5 px-2.5 py-1 bg-amber-100/80 text-amber-900 border border-amber-300 rounded-lg text-[11px] font-bold">
+            <span className="flex items-center gap-1 text-amber-900">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+              🟡 POR VENCER
+            </span>
+            <span className="text-[10px] text-amber-800 font-normal">
+              El {venc.toLocaleDateString('es-ES')} (en {diffDays} d.)
+            </span>
+          </span>
+        ),
+        isVencido: false,
+        canRenovar: true,
+        fechaVenc: venc.toLocaleDateString('es-ES'),
+        diffDays
+      };
+    } else {
+      return {
+        estado: 'vigente',
+        badge: (
+          <span className="inline-flex flex-col items-start gap-0.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-semibold">
+            <span className="flex items-center gap-1 font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+              🟢 VIGENTE
+            </span>
+            <span className="text-[10px] text-emerald-700">
+              Hasta el {venc.toLocaleDateString('es-ES')}
+            </span>
+          </span>
+        ),
+        isVencido: false,
+        canRenovar: true,
+        fechaVenc: venc.toLocaleDateString('es-ES')
+      };
+    }
+  };
+
+  // Conteo dinámico para pestañas
+  const totalVencidos = pacientes.filter(p => getEstadoCarnetInfo(p).isVencido).length;
+  const totalVigentes = pacientes.filter(p => {
+    const s = getEstadoCarnetInfo(p).estado;
+    return s === 'vigente' || s === 'por_vencer';
+  }).length;
+  const totalEnTramite = pacientes.filter(p => getEstadoCarnetInfo(p).estado === 'en_tramite').length;
+
+  const pacientesFiltrados = pacientes.filter(p => {
+    const info = getEstadoCarnetInfo(p);
+    if (filtroTab === 'vencidos') return info.isVencido;
+    if (filtroTab === 'vigentes') return info.estado === 'vigente' || info.estado === 'por_vencer';
+    if (filtroTab === 'en_tramite') return info.estado === 'en_tramite';
+    return true;
+  });
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -166,13 +325,43 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
               </div>
               
               <button
-                onClick={handleOpenNewTramite}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/10 transition-colors cursor-pointer flex items-center gap-1"
+                onClick={() => handleOpenRenovacion(selectedPaciente)}
+                disabled={!getEstadoCarnetInfo(selectedPaciente).canRenovar}
+                title={!getEstadoCarnetInfo(selectedPaciente).canRenovar ? getEstadoCarnetInfo(selectedPaciente).motivoNoRenovar : 'Iniciar renovación anual de carnet'}
+                className={`px-4 py-2 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 ${
+                  !getEstadoCarnetInfo(selectedPaciente).canRenovar
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                    : getEstadoCarnetInfo(selectedPaciente).isVencido
+                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/20 cursor-pointer animate-pulse'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 cursor-pointer'
+                }`}
               >
-                <PlusCircle size={14} />
-                Abrir Nuevo Trámite
+                <RefreshCw size={13} />
+                Renovar Carnet Sanitario
               </button>
             </div>
+
+            {/* Alerta si el carnet está vencido */}
+            {getEstadoCarnetInfo(selectedPaciente).isVencido && (
+              <div className="p-3.5 bg-red-50 border-2 border-red-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-red-900 shadow-xs">
+                <div className="flex items-center gap-2.5 text-xs">
+                  <AlertTriangle size={20} className="text-red-600 shrink-0" />
+                  <div>
+                    <span className="font-black text-red-900">¡CARNET SANITARIO VENCIDO!</span>
+                    <p className="text-red-700 text-[11px] mt-0.5">
+                      Expiró el <strong>{getEstadoCarnetInfo(selectedPaciente).fechaVenc}</strong> ({getEstadoCarnetInfo(selectedPaciente).diasVencido} días atrás). Debe realizarse la renovación correspondiente.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleOpenRenovacion(selectedPaciente)}
+                  className="whitespace-nowrap px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                >
+                  <RefreshCw size={12} />
+                  Renovar Ahora
+                </button>
+              </div>
+            )}
 
             {/* N° Carnet Físico — PRINCIPAL */}
             {selectedPaciente.numero_carnet_fisico && (
@@ -207,44 +396,6 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
             </div>
           </div>
         </div>
-
-        {/* Modal de Nuevo Trámite */}
-        {showNewTramiteModal && (
-          <div className="bg-slate-900/50 backdrop-blur-xs fixed inset-0 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-sm w-full shadow-2xl space-y-4">
-              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Nuevo Trámite de Renovación</h3>
-              <form onSubmit={handleCreateTramite} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Tipo Trámite *</label>
-                  <select
-                    value={newTramiteType}
-                    onChange={(e) => setNewTramiteType(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white outline-none focus:border-blue-500"
-                  >
-                    <option value="Renovación">Renovación</option>
-                    <option value="Apertura">Apertura (Duplicado / Nueva)</option>
-                  </select>
-                </div>
-                <div className="flex gap-2 justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowNewTramiteModal(false)}
-                    className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submittingTramite}
-                    className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-xs"
-                  >
-                    {submittingTramite ? 'Iniciando...' : 'Iniciar Trámite'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {/* Historial de Trámites */}
         <div className="space-y-4">
@@ -421,7 +572,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                 <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
                   <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="pacientePrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
-                    🪪 Kardex Oficial (7 × 9 cm)
+                    🪪 Kardex Oficial (9 × 7 cm)
                   </label>
                   <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="pacientePrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
@@ -476,6 +627,16 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
         </div>
       )}
 
+      {success && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span className="font-semibold">{success}</span>
+          </div>
+          <button onClick={() => setSuccess('')} className="text-emerald-700 hover:text-emerald-950 text-xs font-bold cursor-pointer">✕</button>
+        </div>
+      )}
+
       {/* Formulario Filtros */}
       <form onSubmit={handleSearch} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
         <div className="sm:col-span-2">
@@ -525,21 +686,93 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
         </div>
       </form>
 
+      {/* Pestañas de Estado de Carnet */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setFiltroTab('todos')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            filtroTab === 'todos'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          Todos ({pacientes.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroTab('vencidos')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            filtroTab === 'vencidos'
+              ? 'bg-red-600 text-white shadow-sm shadow-red-500/20'
+              : totalVencidos > 0
+              ? 'bg-red-50 text-red-700 border border-red-300 hover:bg-red-100'
+              : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <span>🔴 Carnets Vencidos</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-black ${filtroTab === 'vencidos' ? 'bg-white text-red-700' : 'bg-red-200 text-red-800'}`}>
+            {totalVencidos}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroTab('vigentes')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            filtroTab === 'vigentes'
+              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/20'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <span>🟢 Carnets Vigentes</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${filtroTab === 'vigentes' ? 'bg-white text-emerald-700' : 'bg-emerald-100 text-emerald-800'}`}>
+            {totalVigentes}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroTab('en_tramite')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            filtroTab === 'en_tramite'
+              ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/20'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <span>⏳ En Trámite</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${filtroTab === 'en_tramite' ? 'bg-white text-amber-700' : 'bg-amber-100 text-amber-800'}`}>
+            {totalEnTramite}
+          </span>
+        </button>
+      </div>
+
       {/* Resultados de la búsqueda */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-slate-500">Filtrando expedientes...</p>
         </div>
-      ) : pacientes.length === 0 ? (
+      ) : pacientesFiltrados.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
           <Users size={40} className="text-slate-300 mb-2" />
-          <p className="text-xs font-bold text-slate-500">No se encontraron expedientes coincidentes</p>
-          <p className="text-[10px] text-slate-400 mt-1">Intente cambiar la palabra clave o limpie los filtros.</p>
+          <p className="text-xs font-bold text-slate-500">
+            {filtroTab === 'vencidos'
+              ? 'No hay pacientes con carnet sanitario vencido'
+              : filtroTab === 'vigentes'
+              ? 'No hay pacientes con carnet vigente'
+              : filtroTab === 'en_tramite'
+              ? 'No hay trámites activos en proceso'
+              : 'No se encontraron expedientes coincidentes'}
+          </p>
+          <p className="text-[10px] text-slate-400 mt-1">
+            {filtroTab !== 'todos' ? 'Cambie de pestaña o limpie los filtros.' : 'Intente cambiar la palabra clave o limpie los filtros.'}
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[640px]">
+          <table className="w-full text-left text-xs min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-6">Foto</th>
@@ -547,53 +780,203 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                 <th className="py-3.5 px-6">Cédula de Identidad</th>
                 <th className="py-3.5 px-6">N° Kardex</th>
                 <th className="py-3.5 px-6">Ocupación / Rubro</th>
-                <th className="py-3.5 px-6">Estado Último Carnet</th>
+                <th className="py-3.5 px-6">Estado del Carnet</th>
                 <th className="py-3.5 px-6 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {pacientes.map((paciente) => (
-                <tr key={paciente.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-3 px-6">
-                    <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                      {paciente.foto_url ? (
-                        <img src={paciente.foto_url} alt="Paciente" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold bg-slate-200">
-                          {paciente.nombres[0]}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <p className="font-bold text-slate-900">{paciente.nombres} {paciente.apellidos}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{paciente.empresa_trabajo || 'Independiente'}</p>
-                  </td>
-                  <td className="py-3 px-6 font-semibold font-mono text-slate-800">
-                    {paciente.ci} {paciente.ci_exp}
-                  </td>
-                  <td className="py-3 px-6">
-                    <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
-                      {paciente.numero_carnet_fisico ? `N° ${paciente.numero_carnet_fisico}` : '—'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-6 font-medium text-slate-750">{paciente.ocupacion}</td>
-                  <td className="py-3 px-6">
-                    {paciente.estado ? getStatusBadge(paciente.estado) : <span className="text-slate-400 italic">Ninguno iniciado</span>}
-                  </td>
-                  <td className="py-3 px-6 text-center">
-                    <button
-                      onClick={() => handleViewDetails(paciente)}
-                      className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-950 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 mx-auto"
-                    >
-                      <Eye size={12} />
-                      Ver Expediente
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {pacientesFiltrados.map((paciente) => {
+                const infoCarnet = getEstadoCarnetInfo(paciente);
+                return (
+                  <tr key={paciente.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-6">
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                        {paciente.foto_url ? (
+                          <img src={paciente.foto_url} alt="Paciente" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold bg-slate-200">
+                            {paciente.nombres[0]}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-6">
+                      <p className="font-bold text-slate-900">{paciente.nombres} {paciente.apellidos}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{paciente.empresa_trabajo || 'Independiente'}</p>
+                    </td>
+                    <td className="py-3 px-6 font-semibold font-mono text-slate-800">
+                      {paciente.ci} {paciente.ci_exp}
+                    </td>
+                    <td className="py-3 px-6">
+                      <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
+                        {paciente.numero_carnet_fisico ? `N° ${paciente.numero_carnet_fisico}` : '—'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-6 font-medium text-slate-750">{paciente.ocupacion}</td>
+                    <td className="py-3 px-6">
+                      {infoCarnet.badge}
+                    </td>
+                    <td className="py-3 px-6 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => handleViewDetails(paciente)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-950 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                          title="Ver expediente clínico"
+                        >
+                          <Eye size={12} />
+                          Ver
+                        </button>
+
+                        {infoCarnet.canRenovar ? (
+                          <button
+                            onClick={() => handleOpenRenovacion(paciente)}
+                            title={infoCarnet.isVencido ? 'Carnet vencido - Iniciar renovación' : 'Renovar carnet sanitario'}
+                            className={`px-3 py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1 shadow-xs ${
+                              infoCarnet.isVencido
+                                ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }`}
+                          >
+                            <RefreshCw size={11} />
+                            Renovar
+                          </button>
+                        ) : (
+                          <span
+                            className="px-2 py-1.5 bg-slate-100 text-slate-400 font-semibold text-[10px] rounded-lg border border-slate-200 cursor-not-allowed"
+                            title={infoCarnet.motivoNoRenovar}
+                          >
+                            En curso
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ===== MODAL DE RENOVACIÓN DE CARNET SANITARIO ===== */}
+      {renovacionPaciente && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <RefreshCw size={16} className="text-blue-600" />
+                Renovación de Carnet Sanitario
+              </h3>
+              <button
+                onClick={() => setRenovacionPaciente(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-semibold">Paciente:</span>
+                <span className="font-bold text-slate-900">{renovacionPaciente.nombres} {renovacionPaciente.apellidos}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-semibold">Cédula:</span>
+                <span className="font-mono font-bold text-slate-800">{renovacionPaciente.ci} {renovacionPaciente.ci_exp}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-semibold">Ocupación / Rubro:</span>
+                <span className="font-medium text-slate-800">{renovacionPaciente.ocupacion}</span>
+              </div>
+              {renovacionPaciente.numero_carnet_fisico && (
+                <div className="flex justify-between pt-1 border-t border-blue-200/60">
+                  <span className="text-blue-800 font-semibold">Último Kardex registrado:</span>
+                  <span className="font-mono font-bold text-blue-700 bg-white px-1.5 py-0.5 rounded border border-blue-300">
+                    N° {renovacionPaciente.numero_carnet_fisico}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {getEstadoCarnetInfo(renovacionPaciente).isVencido && (
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700 flex items-center gap-1.5">
+                <AlertTriangle size={14} className="shrink-0 text-red-600" />
+                <span>
+                  Carnet vencido el {getEstadoCarnetInfo(renovacionPaciente).fechaVenc}. La renovación iniciará una nueva vigencia de 1 año tras aprobación.
+                </span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmRenovacion} className="space-y-4">
+              {/* N° Nuevo de Carnet Físico / Kardex */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  🪪 N° Nuevo de Carnet Físico / Kardex
+                  <span className="text-[11px] font-normal text-slate-400 ml-1">(Número pre-impreso del nuevo cartón)</span>
+                </label>
+                <input
+                  type="text"
+                  value={renovacionKardex}
+                  onChange={(e) => {
+                    let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+                    if (val.startsWith('-')) val = val.replace(/^-+/, '');
+                    setRenovacionKardex(val);
+                  }}
+                  placeholder="Ej. 000386 o nuevo código..."
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-xl text-base font-bold font-mono text-blue-800 outline-none focus:border-blue-600 bg-white uppercase placeholder:text-slate-300"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Opcional si aún no se tiene el cartón en mano; se puede asignar o confirmar al emitir.
+                </p>
+              </div>
+
+              {/* Costo del trámite y Tipo */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Costo Trámite (Bs.)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={renovacionCosto}
+                    onChange={(e) => setRenovacionCosto(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono outline-none focus:border-blue-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Tipo de Trámite</label>
+                  <input
+                    type="text"
+                    value="Renovación (1 Año)"
+                    readOnly
+                    className="w-full px-3 py-2 border border-slate-200 bg-slate-100 rounded-lg text-xs font-semibold text-slate-600 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-slate-500 leading-relaxed">
+                💡 Al confirmar la renovación, el paciente será enviado inmediatamente a la <strong>Bandeja de Laboratorio</strong> para registrar sus nuevos análisis clínicos.
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRenovacionPaciente(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRenovacion}
+                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors cursor-pointer shadow-md shadow-blue-500/20 flex items-center gap-1.5"
+                >
+                  <RefreshCw size={13} className={submittingRenovacion ? 'animate-spin' : ''} />
+                  {submittingRenovacion ? 'Iniciando Renovación...' : 'Confirmar e Iniciar Renovación'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

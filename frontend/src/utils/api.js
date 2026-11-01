@@ -58,6 +58,7 @@ const api = {
       if (filters.query) params.append('query', filters.query);
       if (filters.mercado) params.append('mercado', filters.mercado);
       if (filters.ocupacion) params.append('ocupacion', filters.ocupacion);
+      if (filters.filtro_estado) params.append('filtro_estado', filters.filtro_estado);
       const queryStr = params.toString() ? `?${params.toString()}` : '';
       return request(`/pacientes${queryStr}`);
     },

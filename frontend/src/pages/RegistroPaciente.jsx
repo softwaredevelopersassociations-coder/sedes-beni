@@ -191,9 +191,37 @@ export default function RegistroPaciente({ onNavigate }) {
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-xs text-red-700 rounded-xl flex items-start gap-2.5 shadow-xs">
           <AlertCircle className="shrink-0 mt-0.5" size={16} />
-          <span>{error}</span>
+          <div className="flex-1">
+            <p className="font-semibold">{error}</p>
+            {error.includes('ya se encuentra registrado') && (
+              <button
+                type="button"
+                onClick={() => onNavigate('pacientes-lista')}
+                className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-xs"
+              >
+                Ir a Búsqueda de Pacientes para Renovar Carnet →
+              </button>
+            )}
+          </div>
         </div>
       )}
+
+      {/* Banner informativo de Apertura vs Renovación */}
+      <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between gap-3 text-xs text-blue-900">
+        <div className="flex items-center gap-2">
+          <span className="text-base">ℹ️</span>
+          <span>
+            Este formulario es <strong>exclusivo para Apertura (Primera vez)</strong>. Si el paciente ya cuenta con un carnet o registro previo, realice la <strong>Renovación</strong> desde Búsqueda de Pacientes.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate('pacientes-lista')}
+          className="whitespace-nowrap px-3 py-1 bg-white hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg border border-blue-300 transition-colors cursor-pointer"
+        >
+          Ir a Búsqueda y Renovación
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
@@ -395,19 +423,14 @@ export default function RegistroPaciente({ onNavigate }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5">Tipo de Trámite *</label>
-                <select
-                  name="tipo_tramite"
-                  value={formData.tipo_tramite}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white"
-                >
-                  <option value="Apertura">Apertura (Primera vez)</option>
-                  <option value="Renovación">Renovación (Anual)</option>
-                </select>
+                <div className="px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold text-blue-700 bg-slate-50 flex items-center justify-between">
+                  <span>Apertura (Primera vez)</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-mono">NUEVO</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Para renovaciones de carnet, use <button type="button" onClick={() => onNavigate('pacientes-lista')} className="underline text-blue-600 font-semibold cursor-pointer">Búsqueda de Pacientes</button>.
+                </p>
               </div>
-
-
             </div>
           </div>
 
