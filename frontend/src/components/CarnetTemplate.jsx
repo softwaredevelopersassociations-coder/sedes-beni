@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import frenteModelo from '../assets/cardex/carnet-nuevo-frente.png';
 import reversoModelo from '../assets/cardex/carnet-nuevo-reverso.png';
+import logoHeaderOficial from '../assets/cardex/logo-header-oficial.png';
 
 export default function CarnetTemplate({ carnet, size = 'standard', defaultSide = 'both' }) {
   const [activeSide, setActiveSide] = useState(defaultSide);
@@ -135,6 +136,33 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
               draggable="false"
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', pointerEvents: 'none' }}
             />
+
+            {/* Bloque 1 Calibrado: Logo Oficial Beni + Textos (3 cm largo x 1,5 cm alto | top: 0,4 cm | left: 0,4 cm letras / 0,5 cm logo) */}
+            <div
+              style={{
+                position: 'absolute',
+                top: isCR80 ? '3mm' : '4mm',
+                left: isCR80 ? '3mm' : '4mm',
+                width: isCR80 ? '26mm' : '30mm',
+                height: isCR80 ? '13mm' : '15mm',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                backgroundColor: '#ffde59',
+              }}
+            >
+              <img
+                src={logoHeaderOficial}
+                alt="Logo Gobierno Autónomo Departamental del Beni"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'fill',
+                  pointerEvents: 'none',
+                }}
+              />
+            </div>
             <div style={{ position: 'absolute', top: '4.8%', right: '3.5%', width: '27%', height: '6%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', color: '#dc2626', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: isCR80 ? '8pt' : '9pt', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden' }}>
               Nº {numCarnet}
             </div>
