@@ -73,6 +73,11 @@
     break-inside: avoid !important;
   }
 
+  .carnet-print-pair {
+    flex-direction: row !important;
+    gap: 4mm !important;
+  }
+
   /* Configuración de página limpia sin cabeceras/pies de página de URL */
   @page {
     size: auto;
