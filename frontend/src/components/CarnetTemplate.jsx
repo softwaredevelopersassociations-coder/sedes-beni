@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import frenteModelo from '../assets/cardex/carnet-nuevo-frente.png';
 import reversoModelo from '../assets/cardex/carnet-nuevo-reverso.png';
 
-const MODELO_RATIO = 2390 / 1550;
-
 export default function CarnetTemplate({ carnet, size = 'standard', defaultSide = 'both' }) {
   const [activeSide, setActiveSide] = useState(defaultSide);
   if (!carnet) return null;
 
   const isCR80 = size === 'cr80';
-  const cardWidth = isCR80 ? 86 : 90;
-  const cardHeight = isCR80 ? 54 : cardWidth / MODELO_RATIO;
+  // Medidas oficiales reales del carnet: 8,8 cm de largo (ancho) x 7,9 cm de altura para impresión en hoja tamaño Carta
+  const cardWidth = isCR80 ? 86 : 88;
+  const cardHeight = isCR80 ? 54 : 79;
   const cardStyle = {
     width: cardWidth + 'mm',
     height: cardHeight + 'mm',

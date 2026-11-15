@@ -572,7 +572,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                 <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
                   <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="pacientePrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
-                    🪪 Carnet Oficial (9 × 5,84 cm)
+                    🪪 Carnet Oficial (8,8 × 7,9 cm)
                   </label>
                   <label className={`cursor-pointer px-4 py-3 border-2 rounded-xl flex items-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="pacientePrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />

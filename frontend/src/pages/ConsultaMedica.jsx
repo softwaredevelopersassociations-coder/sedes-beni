@@ -423,7 +423,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <label className={`cursor-pointer flex-1 sm:flex-initial px-3.5 py-2 border-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${printSize === 'standard' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="consultaPrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
-                    🪪 Carnet Oficial (9 × 5,84 cm)
+                    🪪 Carnet Oficial (8,8 × 7,9 cm)
                   </label>
                   <label className={`cursor-pointer flex-1 sm:flex-initial px-3.5 py-2 border-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="consultaPrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />

@@ -73,15 +73,23 @@
     break-inside: avoid !important;
   }
 
-  .carnet-print-pair {
-    flex-direction: row !important;
-    gap: 4mm !important;
+  .carnet-oficial {
+    box-shadow: none !important;
   }
 
-  /* Configuración de página limpia sin cabeceras/pies de página de URL */
+  .carnet-print-pair {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 4mm !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+  }
+
+  /* Configuración de página limpia tamaño Carta (Letter) sin cabeceras/pies de página de URL */
   @page {
-    size: auto;
-    margin: 5mm;
+    size: letter portrait;
+    margin: 8mm;
   }
 }
 
