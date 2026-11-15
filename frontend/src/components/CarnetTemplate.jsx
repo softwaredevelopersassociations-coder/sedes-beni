@@ -137,6 +137,19 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', pointerEvents: 'none' }}
             />
 
+            {/* Tapar completamente el logo antiguo de la imagen de fondo para evitar que se superponga */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '50%',
+                height: '32%',
+                backgroundColor: '#ffde59',
+                zIndex: 5,
+              }}
+            />
+
             {/* Bloque 1 Calibrado: Logo Oficial Beni + Textos (3 cm largo x 1,5 cm alto | top: 0,4 cm | left: 0,4 cm letras / 0,5 cm logo) */}
             <div
               style={{
