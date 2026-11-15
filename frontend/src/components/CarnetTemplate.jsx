@@ -7,14 +7,10 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
   if (!carnet) return null;
 
   const isCR80 = size === 'cr80';
-  const isAdjusted = size === 'adjusted';
-  // Dimensiones físicas en papel:
-  // - standard: 8,8 cm largo (ancho horizontal) x 7,9 cm altura (alto vertical)
-  // - adjusted: 7,82 cm largo x 7,02 cm altura (compensado si la impresora expande +11%)
-  // - cr80: 8,6 cm x 5,4 cm
-  const cardWidth = isCR80 ? 86 : (isAdjusted ? 78.2 : 88);
-  const cardHeight = isCR80 ? 54 : (isAdjusted ? 70.2 : 79);
-  const sizeClass = isCR80 ? 'carnet-oficial-cr80' : (isAdjusted ? 'carnet-oficial-adjusted' : 'carnet-oficial-standard');
+  // Medidas oficiales reales del carnet físico: 8,8 cm de largo (ancho) x 6,9 cm de altura para hoja Carta
+  const cardWidth = isCR80 ? 86 : 88;
+  const cardHeight = isCR80 ? 54 : 69;
+  const sizeClass = isCR80 ? 'carnet-oficial-cr80' : 'carnet-oficial-standard';
 
   const cardStyle = {
     width: cardWidth + 'mm',

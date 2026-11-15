@@ -86,22 +86,11 @@
   /* Dimensiones estrictas en milímetros al imprimir */
   .carnet-oficial-standard {
     width: 88mm !important;
-    height: 79mm !important;
+    height: 69mm !important;
     min-width: 88mm !important;
     max-width: 88mm !important;
-    min-height: 79mm !important;
-    max-height: 79mm !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-  }
-
-  .carnet-oficial-adjusted {
-    width: 78.2mm !important;
-    height: 70.2mm !important;
-    min-width: 78.2mm !important;
-    max-width: 78.2mm !important;
-    min-height: 70.2mm !important;
-    max-height: 70.2mm !important;
+    min-height: 69mm !important;
+    max-height: 69mm !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
   }
