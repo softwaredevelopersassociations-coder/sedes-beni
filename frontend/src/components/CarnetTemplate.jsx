@@ -7,9 +7,15 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
   if (!carnet) return null;
 
   const isCR80 = size === 'cr80';
-  // Medidas oficiales reales del carnet: 8,8 cm de largo (ancho) x 7,9 cm de altura para impresión en hoja tamaño Carta
-  const cardWidth = isCR80 ? 86 : 88;
-  const cardHeight = isCR80 ? 54 : 79;
+  const isAdjusted = size === 'adjusted';
+  // Dimensiones físicas en papel:
+  // - standard: 8,8 cm largo (ancho horizontal) x 7,9 cm altura (alto vertical)
+  // - adjusted: 7,82 cm largo x 7,02 cm altura (compensado si la impresora expande +11%)
+  // - cr80: 8,6 cm x 5,4 cm
+  const cardWidth = isCR80 ? 86 : (isAdjusted ? 78.2 : 88);
+  const cardHeight = isCR80 ? 54 : (isAdjusted ? 70.2 : 79);
+  const sizeClass = isCR80 ? 'carnet-oficial-cr80' : (isAdjusted ? 'carnet-oficial-adjusted' : 'carnet-oficial-standard');
+
   const cardStyle = {
     width: cardWidth + 'mm',
     height: cardHeight + 'mm',
@@ -125,7 +131,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
 
       <div className="carnet-print-pair flex flex-col md:flex-row gap-6 items-center justify-center">
         {(activeSide === 'front' || activeSide === 'both') && (
-          <div className="carnet-oficial carnet-anverso" style={cardStyle}>
+          <div className={`carnet-oficial ${sizeClass} carnet-anverso`} style={cardStyle}>
             <img
               src={frenteModelo}
               alt=""
@@ -158,7 +164,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
         )}
 
         {(activeSide === 'back' || activeSide === 'both') && (
-          <div className="carnet-oficial carnet-reverso" style={cardStyle}>
+          <div className={`carnet-oficial ${sizeClass} carnet-reverso`} style={cardStyle}>
             <img
               src={reversoModelo}
               alt=""

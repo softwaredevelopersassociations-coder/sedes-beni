@@ -425,6 +425,10 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                     <input type="radio" name="consultaPrintSize" value="standard" checked={printSize === 'standard'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
                     🪪 Carnet Oficial (8,8 × 7,9 cm)
                   </label>
+                  <label className={`cursor-pointer flex-1 sm:flex-initial px-3.5 py-2 border-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${printSize === 'adjusted' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                    <input type="radio" name="consultaPrintSize" value="adjusted" checked={printSize === 'adjusted'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
+                    🎯 Calibrado (Compensado 8,8 × 7,9 cm)
+                  </label>
                   <label className={`cursor-pointer flex-1 sm:flex-initial px-3.5 py-2 border-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${printSize === 'cr80' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                     <input type="radio" name="consultaPrintSize" value="cr80" checked={printSize === 'cr80'} onChange={(e) => setPrintSize(e.target.value)} className="hidden" />
                     💳 Tarjeta CR80 (8.6 × 5.4 cm)
