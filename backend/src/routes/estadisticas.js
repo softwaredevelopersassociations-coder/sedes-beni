@@ -78,6 +78,27 @@ router.get('/laboratorio-resumen', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/estadisticas/diagnosticos (Diagnósticos clínicos más frecuentes)
+router.get('/diagnosticos', verifyToken, checkRole(['admin']), async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT TRIM(diagnostico) AS diagnostico,
+             COUNT(*)::int AS cantidad,
+             COUNT(*) FILTER (WHERE aprobado = true)::int AS aprobados,
+             COUNT(*) FILTER (WHERE aprobado = false)::int AS rechazados
+      FROM consultas_medicas
+      WHERE diagnostico IS NOT NULL AND TRIM(diagnostico) <> ''
+      GROUP BY TRIM(diagnostico)
+      ORDER BY cantidad DESC, diagnostico ASC
+      LIMIT 8
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error al obtener resumen de diagnósticos:', error);
+    res.status(500).json({ error: 'Error al obtener el resumen de diagnósticos.' });
+  }
+});
+
 // GET /api/estadisticas/rubros-mercados (Datos de ocupación y mercados)
 router.get('/rubros-mercados', verifyToken, async (req, res) => {
   try {

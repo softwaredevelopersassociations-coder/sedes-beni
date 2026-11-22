@@ -18,6 +18,16 @@ function NavigationRouter() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sharedData, setSharedData] = useState(null); // Para pasar datos entre páginas (ej. paciente a evaluar)
 
+  const handleNavigate = (page, data = undefined) => {
+    setActivePage(page);
+    if (data !== undefined) {
+      setSharedData(data);
+    } else if (page !== 'medicina-formulario' && page !== 'laboratorio-formulario') {
+      // Al navegar por el menú lateral o entre secciones generales, limpiar datos del paciente previo
+      setSharedData(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 gap-3">
@@ -38,16 +48,16 @@ function NavigationRouter() {
       case 'dashboard':
         return (
           <Dashboard 
-            onNavigate={setActivePage} 
+            onNavigate={handleNavigate} 
             setSharedData={setSharedData} 
           />
         );
       case 'pacientes-registro':
-        return <RegistroPaciente onNavigate={setActivePage} />;
+        return <RegistroPaciente onNavigate={handleNavigate} />;
       case 'pacientes-lista':
         return (
           <PacientesLista 
-            onNavigate={setActivePage} 
+            onNavigate={handleNavigate} 
             setSharedData={setSharedData} 
           />
         );
@@ -57,7 +67,7 @@ function NavigationRouter() {
           <Laboratorio 
             sharedData={sharedData} 
             setSharedData={setSharedData} 
-            onNavigate={setActivePage} 
+            onNavigate={handleNavigate} 
           />
         );
       case 'medicina':
@@ -66,7 +76,7 @@ function NavigationRouter() {
           <ConsultaMedica 
             sharedData={sharedData} 
             setSharedData={setSharedData} 
-            onNavigate={setActivePage} 
+            onNavigate={handleNavigate} 
           />
         );
       case 'reportes':
@@ -85,7 +95,7 @@ function NavigationRouter() {
   };
 
   return (
-    <DashboardLayout activePage={activePage} onNavigate={setActivePage}>
+    <DashboardLayout activePage={activePage} onNavigate={handleNavigate}>
       {renderPage()}
     </DashboardLayout>
   );

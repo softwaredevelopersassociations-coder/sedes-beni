@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.jpeg';
-import { Key, User, AlertCircle } from 'lucide-react';
+import { Key, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -87,13 +88,22 @@ export default function Login() {
                 <Key size={16} />
               </span>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 disabled={loading}
-                className="w-full pl-10 pr-4 py-3 bg-green-950/50 border border-green-800 focus:border-green-500 rounded-xl text-sm text-white placeholder-green-700 outline-none transition-all"
+                className="w-full pl-10 pr-12 py-3 bg-green-950/50 border border-green-800 focus:border-green-500 rounded-xl text-sm text-white placeholder-green-700 outline-none transition-all"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 transition-colors hover:text-white"
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
             </div>
           </div>
 

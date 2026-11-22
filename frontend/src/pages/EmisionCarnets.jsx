@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Printer, AlertCircle, FileCheck2, Settings2, X, Search } from 'lucide-react';
 import CarnetTemplate from '../components/CarnetTemplate';
+import useLiveRefresh from '../hooks/useLiveRefresh';
 
 export default function EmisionCarnets() {
   const [carnets, setCarnets] = useState([]);
@@ -12,9 +13,11 @@ export default function EmisionCarnets() {
   const [selectedCarnet, setSelectedCarnet] = useState(null);
   const [printSize, setPrintSize] = useState('standard');
 
-  const fetchCarnets = async () => {
-    setLoading(true);
-    setError('');
+  const fetchCarnets = async ({ quiet = false } = {}) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const data = await api.pacientes.getAprobados();
       setCarnets(data);
@@ -22,13 +25,15 @@ export default function EmisionCarnets() {
       console.error(err);
       setError(err.message || 'Error al cargar la lista de carnets aprobados.');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchCarnets();
   }, []);
+
+  useLiveRefresh(() => fetchCarnets({ quiet: true }), true, 12000);
 
   const handlePrint = () => {
     window.print();
@@ -193,9 +198,9 @@ export default function EmisionCarnets() {
 
               <div className="text-xs text-slate-500">Vista previa:</div>
               
-              {/* Previsualización escalada y adaptable */}
+              {/* Previsualización */}
               <div className="w-full flex justify-center overflow-x-auto py-2">
-                <div className="scale-[0.8] sm:scale-110 md:scale-140 origin-top mb-16 sm:mb-24 md:mb-28">
+                <div className="w-full max-w-2xl flex justify-center">
                   <CarnetTemplate carnet={selectedCarnet} size={printSize} />
                 </div>
               </div>
@@ -217,7 +222,7 @@ export default function EmisionCarnets() {
       {/* ===== ZONA DE IMPRESIÓN OFICIAL ===== */}
       {selectedCarnet && (
         <div className="hidden print:block print-area print-carnet-wrapper">
-          <CarnetTemplate carnet={selectedCarnet} size={printSize} />
+          <CarnetTemplate carnet={selectedCarnet} size={printSize} isPrintArea={true} />
         </div>
       )}
     </div>

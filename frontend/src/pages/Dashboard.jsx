@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
+import useLiveRefresh from '../hooks/useLiveRefresh';
 import { 
   Users, 
   Beaker, 
@@ -24,6 +25,7 @@ export default function Dashboard({ onNavigate, setSharedData }) {
   const [mensuales, setMensuales] = useState([]);
   const [labResumen, setLabResumen] = useState(null);
   const [auditorias, setAuditorias] = useState([]);
+  const [diagnosticos, setDiagnosticos] = useState([]);
 
   // Estados para Lab / Médico
   const [pendientesLab, setPendientesLab] = useState([]);
@@ -32,21 +34,22 @@ export default function Dashboard({ onNavigate, setSharedData }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
+  const loadData = async ({ showLoader = false } = {}) => {
+    if (showLoader) setLoading(true);
     try {
       if (isAdmin) {
-        const [resData, monthlyData, labData, auditData] = await Promise.all([
+        const [resData, monthlyData, labData, auditData, diagnosisData] = await Promise.all([
           api.estadisticas.getResumen(),
           api.estadisticas.getMensuales(),
           api.estadisticas.getLabResumen(),
-          api.estadisticas.getAuditoria()
+          api.estadisticas.getAuditoria(),
+          api.estadisticas.getDiagnosticos()
         ]);
         setResumen(resData);
         setMensuales(monthlyData);
         setLabResumen(labData);
         setAuditorias(auditData.slice(0, 8)); // Mostrar solo las 8 más recientes
+        setDiagnosticos(diagnosisData);
       }
       
       if (isLab || isAdmin) {
@@ -58,17 +61,20 @@ export default function Dashboard({ onNavigate, setSharedData }) {
         const medPendientes = await api.consultas.getPendientes();
         setPendientesMed(medPendientes);
       }
+      setError('');
     } catch (err) {
       console.error('Error al cargar datos del dashboard:', err);
-      setError('No se pudieron cargar los datos del dashboard. Verifica tu base de datos.');
+      setError('No se pudieron actualizar los datos del panel central. Verifica la conexión con el servidor.');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData({ showLoader: true });
   }, [user]);
+
+  useLiveRefresh(() => loadData(), true, 12000);
 
   const handleSelectLabTramite = (tramite) => {
     setSharedData(tramite);
@@ -84,7 +90,7 @@ export default function Dashboard({ onNavigate, setSharedData }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-slate-500 font-medium animate-pulse">Cargando datos del sistema...</p>
+        <p className="text-sm text-slate-500 font-medium animate-pulse">Cargando datos del panel central...</p>
       </div>
     );
   }
@@ -290,6 +296,45 @@ export default function Dashboard({ onNavigate, setSharedData }) {
               </div>
             </div>
           </div>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-wide text-slate-800">Diagnósticos clínicos más frecuentes</h4>
+                <p className="mt-1 text-xs text-slate-500">Consultas registradas, separadas por resultado de evaluación.</p>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-500">
+                <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-500" />Aprobados</span>
+                <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-500" />No aprobados</span>
+              </div>
+            </div>
+            {diagnosticos.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-xs text-slate-400">
+                Todavía no hay diagnósticos clínicos registrados.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {diagnosticos.map((item) => {
+                  const total = Number(item.cantidad) || 0;
+                  const maxTotal = Math.max(...diagnosticos.map((row) => Number(row.cantidad) || 0), 1);
+                  const width = (total / maxTotal) * 100;
+                  const approvedWidth = total ? (Number(item.aprobados) / total) * 100 : 0;
+                  return (
+                    <div key={item.diagnostico} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[minmax(150px,1fr)_2fr_auto] sm:items-center sm:gap-4">
+                      <p className="truncate text-xs font-semibold text-slate-700" title={item.diagnostico}>{item.diagnostico}</p>
+                      <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="flex h-full overflow-hidden rounded-full" style={{ width: `${width}%` }}>
+                          <span className="h-full bg-emerald-500" style={{ width: `${approvedWidth}%` }} />
+                          <span className="h-full flex-1 bg-rose-500" />
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold tabular-nums text-slate-500">{total} casos</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
           {/* Logs de Auditoría para Admin */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">

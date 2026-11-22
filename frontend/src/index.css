@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Ajustes personalizados para el sistema */
 @layer base {
@@ -26,6 +27,133 @@
   }
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+html.dark [class~="bg-white"] {
+  background-color: #172033 !important;
+}
+
+html.dark [class~="bg-slate-50"],
+html.dark [class~="bg-slate-50/50"] {
+  background-color: #111a2b !important;
+}
+
+html.dark [class~="bg-slate-100"] {
+  background-color: #1e293b !important;
+}
+
+html.dark [class~="bg-slate-200"] {
+  background-color: #334155 !important;
+}
+
+html.dark [class~="text-slate-900"],
+html.dark [class~="text-slate-800"],
+html.dark [class~="text-slate-700"] {
+  color: #e2e8f0 !important;
+}
+
+html.dark [class~="text-slate-600"],
+html.dark [class~="text-slate-500"] {
+  color: #b6c2d2 !important;
+}
+
+html.dark [class~="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+
+html.dark [class~="border-slate-100"],
+html.dark [class~="border-slate-200"],
+html.dark [class~="border-slate-300"] {
+  border-color: #334155 !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #94a3b8;
+}
+
+html.dark table thead {
+  background-color: #1e293b;
+}
+
+html.dark table tbody {
+  color: #cbd5e1;
+}
+
+html.dark [class~="bg-blue-50"],
+html.dark [class~="bg-indigo-50"] {
+  background-color: #172554 !important;
+}
+
+html.dark [class~="bg-emerald-50"],
+html.dark [class~="bg-green-50"] {
+  background-color: #12372e !important;
+}
+
+html.dark [class~="bg-amber-50"] {
+  background-color: #3b2b12 !important;
+}
+
+html.dark [class~="bg-red-50"] {
+  background-color: #3b1d27 !important;
+}
+
+html.dark [class~="text-blue-700"],
+html.dark [class~="text-blue-600"] {
+  color: #93c5fd !important;
+}
+
+html.dark [class~="text-emerald-700"],
+html.dark [class~="text-emerald-600"],
+html.dark [class~="text-green-700"] {
+  color: #86efac !important;
+}
+
+html.dark [class~="text-amber-700"],
+html.dark [class~="text-amber-600"] {
+  color: #fcd34d !important;
+}
+
+html.dark [class~="text-red-700"],
+html.dark [class~="text-red-600"],
+html.dark [class~="text-red-500"] {
+  color: #fda4af !important;
+}
+
+html.dark [class~="border-blue-100"],
+html.dark [class~="border-blue-200"],
+html.dark [class~="border-emerald-100"],
+html.dark [class~="border-emerald-200"],
+html.dark [class~="border-red-100"],
+html.dark [class~="border-red-200"] {
+  border-color: #475569 !important;
+}
+
+html.dark footer {
+  background-color: #10251d;
+  border-color: #1f4536;
+  color: #86efac;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
 /* Reglas de Impresión para el Carnet Sanitario Oficial y Reportes */
 @media print {
   /* Asegurar fidelidad exacta de colores, fondos e imágenes al imprimir */
@@ -50,7 +178,30 @@
   /* Hacer visible únicamente la zona de impresión y sus descendientes */
   .print-area,
   .print-area * {
-    visibility: visible !important;
+    visibility: visible;
+  }
+
+  /* Excepciones de sobreimpresión (modo solo datos) */
+  .print-area .elemento-fijo-oficial,
+  .print-area .ocultar-en-sobreimpresion {
+    display: none !important;
+  }
+
+  .print-area .etiqueta-fija-oficial {
+    visibility: hidden !important;
+    color: transparent !important;
+  }
+
+  .print-area .modo-solo-datos .puntos-guia-form {
+    border-bottom: none !important;
+    border-bottom-color: transparent !important;
+  }
+
+  .print-area .modo-solo-datos {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   /* Posicionar el área de impresión en el origen de la hoja Carta */

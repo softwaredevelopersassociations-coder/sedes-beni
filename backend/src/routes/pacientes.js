@@ -246,7 +246,13 @@ router.post('/', verifyToken, checkRole(['admin']), async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error al registrar paciente:', error);
-    res.status(500).json({ error: 'Error al registrar el paciente en el sistema.' });
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'Ya existe un registro con esos datos (C.I. o código ya existente).' });
+    }
+    if (error.code === '22001') {
+      return res.status(400).json({ error: 'Uno o más datos ingresados superan el límite de caracteres permitido.' });
+    }
+    res.status(500).json({ error: error.message || 'Error al registrar el paciente en el sistema.' });
   } finally {
     client.release();
   }

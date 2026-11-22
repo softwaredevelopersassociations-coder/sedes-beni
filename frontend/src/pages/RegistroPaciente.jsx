@@ -182,7 +182,7 @@ export default function RegistroPaciente({ onNavigate }) {
               onClick={() => onNavigate('dashboard')} 
               className="mt-2 text-[10px] font-bold text-emerald-800 underline hover:text-emerald-950 cursor-pointer block"
             >
-              Ir al Dashboard
+              Ir al Panel central
             </button>
           </div>
         </div>

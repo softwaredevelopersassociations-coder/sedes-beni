@@ -12,6 +12,82 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'sedes_beni',
 });
 
+// Tablas de la versión anterior. Esa versión usa columnas incompatibles con
+// schema.sql. Solo se reconstruyen automáticamente cuando están vacías.
+const legacyDataTables = [
+  'pacientes',
+  'tramites',
+  'laboratorios',
+  'laboratorio_otros_analisis',
+  'consultas_medicas',
+  'logs_auditoria',
+  'quimica_sanguinea',
+  'coproparasitologico',
+  'examen_revision_general',
+];
+
+async function migrateEmptyLegacySchema() {
+  const columnsResult = await pool.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'usuarios'
+  `);
+  const columns = new Set(columnsResult.rows.map((row) => row.column_name));
+
+  if (columns.has('username') && columns.has('password')) return false;
+  if (!columns.has('nombre_usuario') || !columns.has('password_hash')) return false;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const existingTables = [];
+    for (const table of legacyDataTables) {
+      const result = await client.query('SELECT to_regclass($1) IS NOT NULL AS present', [`public.${table}`]);
+      if (result.rows[0].present) existingTables.push(table);
+    }
+
+    // Evita perder trámites o expedientes de una instalación antigua.
+    for (const table of existingTables) {
+      await client.query(`LOCK TABLE public."${table}" IN ACCESS EXCLUSIVE MODE`);
+    }
+
+    const populatedTables = [];
+    for (const table of existingTables) {
+      const result = await client.query(`SELECT COUNT(*)::int AS count FROM public."${table}"`);
+      if (result.rows[0].count > 0) populatedTables.push(table);
+    }
+
+    if (populatedTables.length > 0) {
+      throw new Error(
+        `La base usa el esquema anterior y contiene datos en ${populatedTables.join(', ')}. ` +
+        'No se modificó ninguna tabla para proteger esos datos.'
+      );
+    }
+
+    // Conserva las cuentas existentes y sus hashes bcrypt.
+    await client.query('ALTER TABLE public.usuarios RENAME COLUMN nombre_usuario TO username');
+    await client.query('ALTER TABLE public.usuarios RENAME COLUMN password_hash TO password');
+    if (columns.has('fecha_registro')) {
+      await client.query('ALTER TABLE public.usuarios RENAME COLUMN fecha_registro TO created_at');
+    }
+
+    // Las demás tablas se comprobaron vacías; se recrearán desde schema.sql.
+    for (const table of existingTables) {
+      await client.query(`DROP TABLE public."${table}" CASCADE`);
+    }
+
+    await client.query('COMMIT');
+    console.log('Esquema anterior vacío actualizado; se conservaron los usuarios existentes.');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 // Función para inicializar la base de datos
 async function initDb() {
   try {
@@ -19,6 +95,8 @@ async function initDb() {
     // Verificar conexión básica
     await pool.query('SELECT NOW()');
     console.log('Conexión con PostgreSQL establecida con éxito.');
+
+    await migrateEmptyLegacySchema();
 
     // Leer y ejecutar schema.sql
     const schemaPath = path.join(__dirname, '../../database/schema.sql');
@@ -60,6 +138,7 @@ async function initDb() {
   } catch (error) {
     console.error('Error al inicializar la base de datos:', error.message);
     console.error('Por favor, asegúrate de que PostgreSQL está ejecutándose y de que las credenciales en .env son correctas.');
+    throw error;
   }
 }
 

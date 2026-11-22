@@ -4,38 +4,42 @@ import carnetTemplateImg from '../assets/cardex/carnet_modelo.png';
 
 const STORAGE_KEY = 'carnet-overprint-template-v2';
 
-// Dimensiones oficiales de la tarjeta física del carnet/kardex (7x9 cm = 70mm ancho x 90mm alto)
-export const CARD_WIDTH_MM = 70;
-export const CARD_HEIGHT_MM = 90;
+// Dimensiones oficiales de la tarjeta física del carnet/kardex (8,8 cm largo x 6,9 cm alto = 88mm x 69mm)
+export const CARD_WIDTH_MM = 88;
+export const CARD_HEIGHT_MM = 69;
 
 // Centrado en hoja carta (215.9 x 279.4 mm):
-// Card Left: (215.9 - 90) / 2 = 62.95 mm
-// Card Top: (279.4 - 70) / 2 = 104.7 mm
-export const CARD_ORIGIN_X_MM = 72.95;
-export const CARD_ORIGIN_Y_MM = 94.7;
+// Card Left: (215.9 - 88) / 2 = 63.95 mm
+// Card Top: (279.4 - 69) / 2 = 105.2 mm
+export const CARD_ORIGIN_X_MM = 63.95;
+export const CARD_ORIGIN_Y_MM = 105.2;
 
-// Campos calibrados según el diseño físico del carnet de SEDES Beni guardado en assets:
-// No: esquina superior derecha
-// Nombre y Apellidos: fila 1
-// Actividad: fila 2
-// Lugar de Trabajo: fila 3
-// Grupo Sanguíneo y Factor Rh: fila 4
-// Fecha de Validez: fila 5
-// Foto paciente: recuadro izquierdo
+// Campos calibrados según el diseño físico del carnet oficial real de SEDES Beni:
+// No: cuadrante superior derecho
+// Nombre: fila 1 (Y = 19.5mm)
+// Apellidos (segunda raya): fila 2 (Y = 26.0mm)
+// Actividad: fila 3 (Y = 32.5mm)
+// Lugar de Trabajo: fila 4 (Y = 39.0mm)
+// Grupo Sanguíneo y Factor Rh: fila 5 (Y = 45.5mm)
+// Fecha de Validez: fila 6 (Y = 52.0mm)
+// Foto paciente: recuadro izquierdo (28 x 36 mm)
 export const DEFAULT_FIELDS = [
-  { id: 'codigo', label: 'Nº Carnet', x: 57.95 + 66, y: 106.2 + 8.5, fontSize: 11, bold: true, color: '#dc2626' },
-  { id: 'nombre', label: 'Nombre y Apellidos', x: 57.95 + 43, y: 106.2 + 22.5, fontSize: 8.5, bold: true, color: '#000000' },
-  { id: 'actividad', label: 'Actividad (Rubro)', x: 57.95 + 43, y: 106.2 + 37, fontSize: 8, bold: true, color: '#000000' },
-  { id: 'trabajo', label: 'Lugar de Trabajo', x: 57.95 + 43, y: 106.2 + 45.5, fontSize: 7.5, bold: true, color: '#000000' },
-  { id: 'grupo', label: 'Grupo Sanguíneo', x: 57.95 + 44, y: 106.2 + 53.5, fontSize: 8, bold: true, color: '#000000' },
-  { id: 'rh', label: 'Factor Rh', x: 57.95 + 78, y: 106.2 + 53.5, fontSize: 8, bold: true, color: '#000000' },
-  { id: 'vencimiento', label: 'Fecha de Validez', x: 57.95 + 43, y: 106.2 + 62, fontSize: 8, bold: true, color: '#000000' },
-  { id: 'foto', label: 'Foto Paciente', x: 57.95 + 7.5, y: 106.2 + 22.5, width: 33, height: 41, isFoto: true }
+  { id: 'codigo', label: 'Nº Carnet', x: 63.95 + 43.7, y: 105.2 + 2.5, fontSize: 10, bold: true, color: '#dc2626' },
+  { id: 'nombres', label: 'Nombres', x: 63.95 + 58.6, y: 105.2 + 19.5, fontSize: 8.0, bold: true, color: '#000000' },
+  { id: 'apellidos', label: 'Apellidos', x: 63.95 + 35.0, y: 105.2 + 26.0, fontSize: 8.0, bold: true, color: '#000000' },
+  { id: 'actividad', label: 'Actividad (Rubro)', x: 63.95 + 45.8, y: 105.2 + 32.5, fontSize: 8.0, bold: true, color: '#000000' },
+  { id: 'trabajo', label: 'Lugar de Trabajo', x: 63.95 + 56.8, y: 105.2 + 39.0, fontSize: 7.5, bold: true, color: '#000000' },
+  { id: 'grupo', label: 'Grupo Sanguíneo', x: 63.95 + 56.8, y: 105.2 + 45.5, fontSize: 8.0, bold: true, color: '#000000' },
+  { id: 'rh', label: 'Factor Rh', x: 63.95 + 75.0, y: 105.2 + 45.5, fontSize: 8.0, bold: true, color: '#000000' },
+  { id: 'vencimiento', label: 'Fecha de Validez', x: 63.95 + 56.8, y: 105.2 + 52.0, fontSize: 8.0, bold: true, color: '#000000' },
+  { id: 'foto', label: 'Foto Paciente', x: 63.95 + 5.0, y: 105.2 + 18.5, width: 28, height: 36, isFoto: true }
 ];
 
 export const FIELD_OPTIONS = [
   { id: 'codigo', label: 'Nº Carnet', getValue: (d) => d.codigo_carnet || '' },
-  { id: 'nombre', label: 'Nombre y Apellidos', getValue: (d) => `${d.nombres || ''} ${d.apellidos || ''}`.trim().toUpperCase() },
+  { id: 'nombres', label: 'Nombres', getValue: (d) => (d.nombres || '').trim().toUpperCase() },
+  { id: 'apellidos', label: 'Apellidos', getValue: (d) => (d.apellidos || '').trim().toUpperCase() },
+  { id: 'nombre', label: 'Nombre Completo', getValue: (d) => `${d.nombres || ''} ${d.apellidos || ''}`.trim().toUpperCase() },
   { id: 'ci', label: 'Cédula de Identidad', getValue: (d) => `${d.ci || ''} ${d.ci_exp || ''}`.trim() },
   { id: 'actividad', label: 'Actividad (Rubro)', getValue: (d) => d.ocupacion || '' },
   { id: 'trabajo', label: 'Lugar de Trabajo', getValue: (d) => `${d.empresa_trabajo || ''} ${d.mercado ? `(${d.mercado})` : ''}`.trim() || 'Particular' },

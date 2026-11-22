@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-import { UserCheck, UserX, UserPlus, ShieldAlert, CheckCircle, AlertCircle, Edit3 } from 'lucide-react';
+import useLiveRefresh from '../hooks/useLiveRefresh';
+import { UserCheck, UserX, UserPlus, CheckCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 
 export default function UsuariosGestion() {
   const { user: currentUser } = useAuth();
@@ -10,6 +11,7 @@ export default function UsuariosGestion() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   // Form Modal States
   const [showModal, setShowModal] = useState(false);
@@ -23,9 +25,11 @@ export default function UsuariosGestion() {
     rol: 'laboratorio'
   });
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    setError('');
+  const fetchUsers = async ({ quiet = false } = {}) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const data = await api.auth.getUsers();
       setUsers(data);
@@ -33,13 +37,15 @@ export default function UsuariosGestion() {
       console.error(err);
       setError('Error al obtener el listado de usuarios del servidor.');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useLiveRefresh(() => fetchUsers({ quiet: true }), true, 12000);
 
   const handleChange = (e) => {
     setFormData(prev => ({
@@ -121,6 +127,27 @@ export default function UsuariosGestion() {
     } catch (err) {
       console.error(err);
       setError(err.message || 'Error al modificar el estado del usuario.');
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (user.id === currentUser.id) {
+      setError('No puedes eliminar tu propia cuenta en esta sesión.');
+      return;
+    }
+    if (!window.confirm(`¿Eliminar definitivamente la cuenta "${user.username}"?`)) return;
+
+    setError('');
+    setSuccess('');
+    setDeletingUserId(user.id);
+    try {
+      const response = await api.auth.deleteUser(user.id);
+      setSuccess(response.message);
+      await fetchUsers();
+    } catch (err) {
+      setError(err.message || 'Error al eliminar la cuenta.');
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -220,6 +247,15 @@ export default function UsuariosGestion() {
                         } disabled:opacity-30 disabled:pointer-events-none`}
                       >
                         {u.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(u)}
+                        disabled={u.id === currentUser.id || deletingUserId === u.id}
+                        className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-30"
+                        title="Eliminar cuenta"
+                        aria-label={`Eliminar cuenta ${u.username}`}
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>

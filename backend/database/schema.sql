@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS tramites (
     id SERIAL PRIMARY KEY,
     paciente_id INTEGER REFERENCES pacientes(id) ON DELETE CASCADE,
     tipo_tramite VARCHAR(20) NOT NULL CHECK (tipo_tramite IN ('Apertura', 'Renovación')),
+    numero_carnet_fisico VARCHAR(50),
     codigo_carnet VARCHAR(30) UNIQUE, -- Generado al ser aprobado (ej. CS-2026-0001)
     estado VARCHAR(30) DEFAULT 'Pendiente Laboratorio' CHECK (estado IN ('Pendiente Laboratorio', 'Pendiente Medicina', 'Aprobado', 'Rechazado')),
     observaciones TEXT,
@@ -94,4 +95,8 @@ CREATE INDEX IF NOT EXISTS idx_pacientes_ci ON pacientes(ci);
 CREATE INDEX IF NOT EXISTS idx_pacientes_nombres ON pacientes(nombres, apellidos);
 CREATE INDEX IF NOT EXISTS idx_tramites_estado ON tramites(estado);
 CREATE INDEX IF NOT EXISTS idx_tramites_codigo ON tramites(codigo_carnet);
+CREATE INDEX IF NOT EXISTS idx_tramites_carnet_fisico ON tramites(numero_carnet_fisico);
 CREATE INDEX IF NOT EXISTS idx_otros_analisis_lab_id ON laboratorio_otros_analisis(laboratorio_id);
+
+-- Migraciones automáticas idempotentes
+ALTER TABLE tramites ADD COLUMN IF NOT EXISTS numero_carnet_fisico VARCHAR(50);

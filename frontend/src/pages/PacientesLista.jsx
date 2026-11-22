@@ -5,6 +5,7 @@ import {
   Edit3, Settings2, X, RefreshCw, AlertTriangle, CheckCircle2, Clock, Check
 } from 'lucide-react';
 import CarnetTemplate from '../components/CarnetTemplate';
+import useLiveRefresh from '../hooks/useLiveRefresh';
 
 export default function PacientesLista({ onNavigate, setSharedData }) {
   const [query, setQuery] = useState('');
@@ -32,9 +33,11 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
   const [renovacionCosto, setRenovacionCosto] = useState('30.00');
   const [submittingRenovacion, setSubmittingRenovacion] = useState(false);
 
-  const fetchPacientes = async () => {
-    setLoading(true);
-    setError('');
+  const fetchPacientes = async ({ quiet = false } = {}) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const data = await api.pacientes.list({ query, mercado, ocupacion });
       setPacientes(data);
@@ -42,13 +45,26 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
       console.error(err);
       setError('Error al buscar pacientes en el servidor.');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPacientes();
   }, []);
+
+  useLiveRefresh(async () => {
+    await fetchPacientes({ quiet: true });
+    if (selectedPaciente?.id) {
+      try {
+        const current = await api.pacientes.get(selectedPaciente.id);
+        setSelectedPaciente(current.paciente);
+        setHistorial(current.historial);
+      } catch (err) {
+        console.error('No se pudo actualizar el historial visible:', err);
+      }
+    }
+  }, true, 12000);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -582,8 +598,9 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
 
                 <div className="text-xs text-slate-500">Vista previa:</div>
                 
+                {/* Previsualización */}
                 <div className="w-full flex justify-center overflow-x-auto py-2">
-                  <div className="scale-[0.8] sm:scale-110 md:scale-130 origin-top mb-16 sm:mb-24">
+                  <div className="w-full max-w-2xl flex justify-center">
                     <CarnetTemplate carnet={carnetToPrint} size={printSize} />
                   </div>
                 </div>
@@ -605,7 +622,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
         {/* Zona de impresión oculta en pantalla, visible al imprimir */}
         {carnetToPrint && (
           <div className="hidden print:block print-area print-carnet-wrapper">
-            <CarnetTemplate carnet={carnetToPrint} size={printSize} />
+            <CarnetTemplate carnet={carnetToPrint} size={printSize} isPrintArea={true} />
           </div>
         )}
       </div>

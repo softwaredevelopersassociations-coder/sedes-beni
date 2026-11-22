@@ -19,7 +19,16 @@ async function request(endpoint, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
+    if (response.status === 401 && token && typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      window.dispatchEvent(new Event('sedes:session-invalid'));
+    }
     throw new Error(data.error || 'Ocurrió un error en el servidor.');
+  }
+
+  const method = (config.method || 'GET').toUpperCase();
+  if (method !== 'GET' && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('sedes:data-changed'));
   }
 
   return data;
@@ -49,6 +58,7 @@ const api = {
       request(`/auth/users/${id}/toggle`, {
         method: 'PUT',
       }),
+    deleteUser: (id) => request(`/auth/users/${id}`, { method: 'DELETE' }),
   },
 
   // Pacientes y Trámites
@@ -101,6 +111,7 @@ const api = {
     getResumen: () => request('/estadisticas/resumen'),
     getMensuales: () => request('/estadisticas/mensuales'),
     getLabResumen: () => request('/estadisticas/laboratorio-resumen'),
+    getDiagnosticos: () => request('/estadisticas/diagnosticos'),
     getRubros: () => request('/estadisticas/rubros-mercados'),
     getForm303: (mes) => {
       const query = mes ? `?mes=${mes}` : '';

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Beaker, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, UserCheck, Plus, Search } from 'lucide-react';
 import OtrosAnalisis from '../components/OtrosAnalisis';
+import AdvancedQueueFilters from '../components/AdvancedQueueFilters';
+import useLiveRefresh from '../hooks/useLiveRefresh';
+import { filterPendingTramites } from '../utils/queueSearch';
 
 
 
@@ -10,7 +13,7 @@ export default function Laboratorio({ sharedData, setSharedData, onNavigate }) {
   // Si no hay trámite seleccionado, mostramos la lista de pendientes de laboratorio
   const [pendientes, setPendientes] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [busqueda, setBusqueda] = useState('');
+  const [filters, setFilters] = useState({ query: '', tipo: '', ocupacion: '', mercado: '', desde: '', hasta: '' });
 
   // Campos del formulario
   const [glucosa, setGlucosa] = useState('90');
@@ -37,8 +40,8 @@ const [observaciones, setObservaciones] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const loadPendientes = async () => {
-    setLoadingList(true);
+  const loadPendientes = async ({ quiet = false } = {}) => {
+    if (!quiet) setLoadingList(true);
     try {
       const data = await api.laboratorios.getPendientes();
       setPendientes(data);
@@ -46,7 +49,7 @@ const [observaciones, setObservaciones] = useState('');
       console.error(err);
       setError('Error al cargar la lista de pendientes de laboratorio.');
     } finally {
-      setLoadingList(false);
+      if (!quiet) setLoadingList(false);
     }
   };
 
@@ -55,6 +58,10 @@ const [observaciones, setObservaciones] = useState('');
       loadPendientes();
     }
   }, [sharedData]);
+
+  useLiveRefresh(() => {
+    if (!sharedData) loadPendientes({ quiet: true });
+  }, !sharedData);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -126,16 +133,7 @@ const [observaciones, setObservaciones] = useState('');
 
   // VISTA 1: NO SELECCIONADO (Mostrar bandeja de pendientes)
   if (!sharedData) {
-    const pendientesFiltrados = pendientes.filter((p) => {
-      if (!busqueda.trim()) return true;
-      const term = busqueda.toLowerCase().trim();
-      const nombreCompleto = `${p.nombres || ''} ${p.apellidos || ''}`.toLowerCase();
-      const ci = `${p.ci || ''}`.toLowerCase();
-      const kardex = `${p.numero_carnet_fisico || ''}`.toLowerCase();
-      const ocupacion = `${p.ocupacion || ''}`.toLowerCase();
-      const empresa = `${p.empresa_trabajo || ''}`.toLowerCase();
-      return nombreCompleto.includes(term) || ci.includes(term) || kardex.includes(term) || ocupacion.includes(term) || empresa.includes(term);
-    });
+    const pendientesFiltrados = filterPendingTramites(pendientes, filters);
 
     return (
       <div className="space-y-6">
@@ -151,33 +149,15 @@ const [observaciones, setObservaciones] = useState('');
           </div>
         )}
 
-        {/* Buscador de Laboratorio */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-              <Search size={15} />
-            </span>
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar en laboratorio por N° Kardex, Nombre o C.I...."
-              className="w-full pl-10 pr-8 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500 bg-white"
-            />
-            {busqueda && (
-              <button
-                type="button"
-                onClick={() => setBusqueda('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-xs font-bold"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          <div className="text-xs font-semibold text-slate-500 whitespace-nowrap px-1">
-            {pendientesFiltrados.length} {pendientesFiltrados.length === 1 ? 'paciente en espera' : 'pacientes en espera'}
-          </div>
-        </div>
+        <AdvancedQueueFilters
+          items={pendientes}
+          filters={filters}
+          setFilters={setFilters}
+          resultCount={pendientesFiltrados.length}
+          areaLabel="laboratorio"
+          onRefresh={() => loadPendientes()}
+          accent="blue"
+        />
 
         {loadingList ? (
           <div className="flex flex-col items-center justify-center min-h-[40vh] gap-2">
@@ -193,9 +173,9 @@ const [observaciones, setObservaciones] = useState('');
         ) : pendientesFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-white text-center">
             <Search size={32} className="text-slate-300 mb-2" />
-            <p className="text-xs font-bold text-slate-600">No se encontraron pacientes para "{busqueda}" en laboratorio</p>
+            <p className="text-xs font-bold text-slate-600">No se encontraron pacientes con los filtros seleccionados en laboratorio</p>
             <button
-              onClick={() => setBusqueda('')}
+              onClick={() => setFilters({ query: '', tipo: '', ocupacion: '', mercado: '', desde: '', hasta: '' })}
               className="mt-2 text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
             >
               Limpiar búsqueda
@@ -262,6 +242,37 @@ const [observaciones, setObservaciones] = useState('');
             </table>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // VISTA INTERMEDIA: TRÁMITE YA PROCESADO EN LABORATORIO
+  if (sharedData && sharedData.estado && sharedData.estado !== 'Pendiente Laboratorio' && !success) {
+    return (
+      <div className="max-w-xl mx-auto py-12 space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4">
+          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto border border-blue-100">
+            <CheckCircle size={30} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Este trámite ya fue procesado en laboratorio</h3>
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              El trámite de <strong>{sharedData.nombres} {sharedData.apellidos}</strong> (CI: {sharedData.ci}) se encuentra en estado:{' '}
+              <span className="font-bold text-blue-700">{sharedData.estado}</span>.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <button
+              onClick={() => {
+                setSharedData(null);
+                if (onNavigate) onNavigate('laboratorio');
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Volver a la Bandeja de Laboratorio
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

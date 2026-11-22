@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import CarnetTemplate from '../components/CarnetTemplate';
+import AdvancedQueueFilters from '../components/AdvancedQueueFilters';
+import useLiveRefresh from '../hooks/useLiveRefresh';
+import { filterPendingTramites } from '../utils/queueSearch';
 import {
   Stethoscope,
   PlusCircle, 
@@ -21,7 +24,7 @@ import {
 export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }) {
   const [pendientes, setPendientes] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [busqueda, setBusqueda] = useState('');
+  const [filters, setFilters] = useState({ query: '', tipo: '', ocupacion: '', mercado: '', desde: '', hasta: '' });
 
   // Campos de la consulta (Examen Físico)
   const [piel, setPiel] = useState('Sana');
@@ -45,8 +48,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
   const [success, setSuccess] = useState('');
   const [emitResult, setEmitResult] = useState(null);
 
-  const loadPendientes = async () => {
-    setLoadingList(true);
+  const loadPendientes = async ({ quiet = false } = {}) => {
+    if (!quiet) setLoadingList(true);
     try {
       const data = await api.consultas.getPendientes();
       setPendientes(data);
@@ -54,7 +57,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
       console.error(err);
       setError('Error al cargar la lista de pendientes de medicina.');
     } finally {
-      setLoadingList(false);
+      if (!quiet) setLoadingList(false);
     }
   };
 
@@ -70,6 +73,10 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
       loadPendientes();
     }
   }, [sharedData]);
+
+  useLiveRefresh(() => {
+    if (!sharedData) loadPendientes({ quiet: true });
+  }, !sharedData);
 
   // Si se aprueba o se carga con datos previos, sugerir diagnóstico
   useEffect(() => {
@@ -131,8 +138,16 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
       const response = await api.consultas.saveConsult(sharedData.tramite_id, payload);
       setSuccess(response.message);
       setEmitResult(response);
+      setSharedData(prev => prev ? {
+        ...prev,
+        estado: response.estado,
+        codigo_carnet: response.codigo_carnet,
+        numero_carnet_fisico: response.numero_carnet_fisico || prev.numero_carnet_fisico,
+        fecha_emision: response.fecha_emision,
+        fecha_vencimiento: response.fecha_vencimiento
+      } : null);
       
-      // No limpiar los datos inmediatamente para permitir la impresión directa del carnet recién emitido
+      // Permitir la impresión directa del carnet recién emitido
     } catch (err) {
       console.error(err);
       setError(err.message || 'Error al registrar la evaluación médica.');
@@ -144,25 +159,29 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
     window.print();
   };
 
+  const handleVolverBandeja = () => {
+    setSharedData(null);
+    setEmitResult(null);
+    setSuccess('');
+    setError('');
+    if (onNavigate) {
+      onNavigate('medicina');
+    }
+  };
+
   const handleFinish = () => {
     setSharedData(null);
     setEmitResult(null);
     setSuccess('');
-    onNavigate('dashboard');
+    setError('');
+    if (onNavigate) {
+      onNavigate('dashboard');
+    }
   };
 
   // VISTA 1: LISTADO DE PENDIENTES
   if (!sharedData) {
-    const pendientesFiltrados = pendientes.filter((p) => {
-      if (!busqueda.trim()) return true;
-      const term = busqueda.toLowerCase().trim();
-      const nombreCompleto = `${p.nombres || ''} ${p.apellidos || ''}`.toLowerCase();
-      const ci = `${p.ci || ''}`.toLowerCase();
-      const kardex = `${p.numero_carnet_fisico || ''}`.toLowerCase();
-      const digital = `${p.codigo_carnet || ''}`.toLowerCase();
-      const ocupacion = `${p.ocupacion || ''}`.toLowerCase();
-      return nombreCompleto.includes(term) || ci.includes(term) || kardex.includes(term) || digital.includes(term) || ocupacion.includes(term);
-    });
+    const pendientesFiltrados = filterPendingTramites(pendientes, filters);
 
     return (
       <div className="space-y-6">
@@ -178,33 +197,15 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
           </div>
         )}
 
-        {/* Buscador de Área Médica */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-              <Search size={15} />
-            </span>
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar en área médica por N° Kardex, Nombre, C.I. o Carnet Digital..."
-              className="w-full pl-10 pr-8 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-emerald-500 bg-white"
-            />
-            {busqueda && (
-              <button
-                type="button"
-                onClick={() => setBusqueda('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-xs font-bold"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          <div className="text-xs font-semibold text-slate-500 whitespace-nowrap px-1">
-            {pendientesFiltrados.length} {pendientesFiltrados.length === 1 ? 'paciente en espera' : 'pacientes en espera'}
-          </div>
-        </div>
+        <AdvancedQueueFilters
+          items={pendientes}
+          filters={filters}
+          setFilters={setFilters}
+          resultCount={pendientesFiltrados.length}
+          areaLabel="área médica"
+          onRefresh={() => loadPendientes()}
+          accent="emerald"
+        />
 
         {loadingList ? (
           <div className="flex flex-col items-center justify-center min-h-[40vh] gap-2">
@@ -220,9 +221,9 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
         ) : pendientesFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-white text-center">
             <Search size={32} className="text-slate-300 mb-2" />
-            <p className="text-xs font-bold text-slate-600">No se encontraron pacientes para "{busqueda}" en medicina</p>
+            <p className="text-xs font-bold text-slate-600">No se encontraron pacientes con los filtros seleccionados en medicina</p>
             <button
-              onClick={() => setBusqueda('')}
+              onClick={() => setFilters({ query: '', tipo: '', ocupacion: '', mercado: '', desde: '', hasta: '' })}
               className="mt-2 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer"
             >
               Limpiar búsqueda
@@ -338,6 +339,43 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
     );
   }
 
+  // VISTA INTERMEDIA: PACIENTE YA EVALUADO PREVIAMENTE
+  if (sharedData && (sharedData.estado === 'Aprobado' || sharedData.estado === 'Rechazado') && !emitResult) {
+    return (
+      <div className="max-w-xl mx-auto py-12 space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4">
+          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
+            <CheckCircle size={30} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Este paciente ya fue evaluado</h3>
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              El trámite de <strong>{sharedData.nombres} {sharedData.apellidos}</strong> (CI: {sharedData.ci}) ya fue completado con estado:{' '}
+              <span className={`font-bold ${sharedData.estado === 'Aprobado' ? 'text-emerald-700' : 'text-red-700'}`}>
+                {sharedData.estado}
+              </span>
+              {sharedData.codigo_carnet && <> · Código: <span className="font-mono font-bold text-blue-700">{sharedData.codigo_carnet}</span></>}
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <button
+              onClick={handleVolverBandeja}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Volver a la Bandeja Médica
+            </button>
+            <button
+              onClick={handleFinish}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Ir al Panel Central
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // VISTA 2: FORMULARIO Y RESULTADOS DE EMISIÓN
   const coproTexto = sharedData.coproparasitologico?.examen_microscopico || sharedData.coproparasitologico?.parasito || '';
   const coproAlert = coproTexto && !/no se observan|negativo/i.test(coproTexto);
@@ -349,20 +387,19 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
     <div className="max-w-4xl mx-auto space-y-6">
       
       {/* Botón Volver */}
-      {!emitResult && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSharedData(null)}
-            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Evaluación Médica del Paciente</h2>
-            <p className="text-xs text-slate-500 mt-1">Revise laboratorios, complete el historial físico y decida la aptitud.</p>
-          </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleVolverBandeja}
+          className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+          title="Volver a la bandeja de pendientes"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Evaluación Médica del Paciente</h2>
+          <p className="text-xs text-slate-500 mt-1">Revise laboratorios, complete el historial físico y decida la aptitud.</p>
         </div>
-      )}
+      </div>
 
       {/* Banner de Éxito / Emisión y Previsualización Oficial */}
       {success && emitResult && (
@@ -388,7 +425,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {aprobado && (
                 <button
                   onClick={handlePrint}
@@ -399,10 +436,16 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 </button>
               )}
               <button
+                onClick={handleVolverBandeja}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Volver a la Bandeja
+              </button>
+              <button
                 onClick={handleFinish}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-950 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
               >
-                Finalizar Trámite
+                Panel Central
               </button>
             </div>
           </div>
@@ -432,9 +475,9 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                 </div>
               </div>
 
-              {/* Vista previa centrada con escala adaptable */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 sm:p-8 w-full flex justify-center overflow-x-auto">
-                <div className="scale-[0.8] sm:scale-100 md:scale-125 origin-top" style={{ marginBottom: printSize === 'standard' ? '40px' : '20px' }}>
+              {/* Vista previa centrada */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 sm:p-6 w-full flex justify-center overflow-x-auto">
+                <div className="w-full max-w-2xl flex justify-center">
                   <CarnetTemplate 
                     carnet={{
                       ...sharedData,
@@ -485,6 +528,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               firma_medico: nombreMedico
             }} 
             size={printSize} 
+            isPrintArea={true}
           />
         </div>
       )}

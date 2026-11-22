@@ -11,7 +11,7 @@ async function logAuditoria(usuarioId, accion, detalles, req = null) {
   try {
     let ipAddress = '0.0.0.0';
     if (req) {
-      ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '0.0.0.0';
+      ipAddress = req.ip || (req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || '0.0.0.0';
     }
     
     await db.query(

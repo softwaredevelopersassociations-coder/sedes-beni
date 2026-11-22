@@ -176,4 +176,39 @@ router.put('/users/:id/toggle', verifyToken, checkRole(['admin']), async (req, r
   }
 });
 
+// DELETE /api/auth/users/:id (Solo admin)
+router.delete('/users/:id', verifyToken, checkRole(['admin']), async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+
+  if (!Number.isInteger(id) || id < 1) {
+    return res.status(400).json({ error: 'ID de usuario inválido.' });
+  }
+  if (id === req.user.id) {
+    return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta.' });
+  }
+
+  try {
+    const result = await db.query(
+      'DELETE FROM usuarios WHERE id = $1 RETURNING id, username, nombre_completo, rol',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    const deletedUser = result.rows[0];
+    await logAuditoria(
+      req.user.id,
+      'ELIMINAR_USUARIO',
+      `Eliminó la cuenta ${deletedUser.username} (ID: ${deletedUser.id}, rol: ${deletedUser.rol})`,
+      req
+    );
+
+    res.json({ message: `La cuenta de ${deletedUser.username} fue eliminada.` });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({ error: 'Error interno al eliminar el usuario.' });
+  }
+});
+
 module.exports = router;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.jpeg';
 import { 
@@ -13,17 +13,27 @@ import {
   UserCheck,
   Menu,
   X,
-  Printer
+  Printer,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 export default function DashboardLayout({ activePage, onNavigate, children }) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('sedes-theme') === 'dark');
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('sedes-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  const toggleTheme = () => setDarkMode((value) => !value);
 
   const menuItems = [
     {
       id: 'dashboard',
-      label: 'Dashboard',
+      label: 'Panel central',
       icon: LayoutDashboard,
       roles: ['admin', 'laboratorio', 'medico'],
     },
@@ -72,6 +82,12 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
   ];
 
   const filteredMenuItems = menuItems.filter(item => item.roles.includes(user?.rol));
+  const activeItem = filteredMenuItems.find((item) =>
+    item.id === activePage ||
+    (item.id === 'laboratorio' && activePage === 'laboratorio-formulario') ||
+    (item.id === 'medicina' && activePage === 'medicina-formulario') ||
+    (item.id === 'pacientes-lista' && activePage === 'pacientes-historial')
+  );
 
   const getRoleBadge = (rol) => {
     switch (rol) {
@@ -181,12 +197,33 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
       </aside>
 
       {/* ── SIDEBAR FIJO (desktop lg+) ── */}
-      <aside className="hidden lg:flex w-64 bg-green-950 text-green-100 flex-col shrink-0 border-r border-green-900 print:hidden">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:max-h-screen w-64 bg-green-950 text-green-100 flex-col shrink-0 border-r border-green-900 print:hidden">
         <SidebarContent />
       </aside>
 
       {/* ── ÁREA PRINCIPAL ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:block">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:block lg:h-screen print:h-auto">
+
+        {/* Barra fija en escritorio */}
+        <header className="hidden lg:sticky lg:top-0 lg:z-10 lg:flex items-center justify-between gap-4 px-6 py-3 bg-white border-b border-slate-200 print:hidden">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">SEDES Beni</p>
+            <h2 className="text-sm font-bold text-slate-800">{activeItem?.label || 'Panel central'}</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="max-w-56 truncate text-xs font-semibold text-slate-600">{user?.nombre_completo}</span>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={darkMode ? 'Activar modo claro' : 'Activar modo nocturno'}
+              title={darkMode ? 'Activar modo claro' : 'Activar modo nocturno'}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+              {darkMode ? 'Modo claro' : 'Protección de vista'}
+            </button>
+          </div>
+        </header>
 
         {/* Topbar móvil/tablet */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-green-950 border-b border-green-900 shrink-0 print:hidden">
@@ -204,6 +241,15 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
           </div>
           {/* Badge usuario a la derecha */}
           <div className="ml-auto">{getRoleBadge(user?.rol)}</div>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={darkMode ? 'Activar modo claro' : 'Activar modo nocturno'}
+            title={darkMode ? 'Activar modo claro' : 'Activar modo nocturno'}
+            className="rounded-lg p-2 text-green-300 transition-colors hover:bg-green-800 hover:text-white"
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
         </header>
 
         {/* Contenido scrolleable */}

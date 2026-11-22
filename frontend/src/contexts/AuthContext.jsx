@@ -7,6 +7,16 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const invalidateSession = () => {
+      localStorage.removeItem('token');
+      setUser(null);
+    };
+
+    window.addEventListener('sedes:session-invalid', invalidateSession);
+    return () => window.removeEventListener('sedes:session-invalid', invalidateSession);
+  }, []);
+
   // Verificar si hay token al montar
   useEffect(() => {
     async function checkAuth() {

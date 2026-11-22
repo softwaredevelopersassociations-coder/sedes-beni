@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { FileText, Printer, Calendar, AlertCircle, TrendingUp, ShieldAlert, Award } from 'lucide-react';
+import useLiveRefresh from '../hooks/useLiveRefresh';
 
 export default function Reportes() {
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -12,9 +13,11 @@ export default function Reportes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchReporte = async () => {
-    setLoading(true);
-    setError('');
+  const fetchReporte = async ({ quiet = false } = {}) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const data = await api.estadisticas.getForm303(selectedMonth);
       setReporteData(data);
@@ -22,13 +25,15 @@ export default function Reportes() {
       console.error(err);
       setError('Error al generar el Formulario 303.');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchReporte();
   }, [selectedMonth]);
+
+  useLiveRefresh(() => fetchReporte({ quiet: true }), true, 12000);
 
   const handlePrint = () => {
     window.print();
