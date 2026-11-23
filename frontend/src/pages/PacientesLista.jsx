@@ -610,7 +610,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                 <button onClick={() => setCarnetToPrint(null)} className="w-full sm:w-auto text-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
                   Cerrar
                 </button>
-                <button onClick={() => window.print()} className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                <button onClick={() => { window.dispatchEvent(new Event('carnet_settings_changed')); window.print(); }} className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
                   <Printer size={15} />
                   Proceder a Imprimir
                 </button>

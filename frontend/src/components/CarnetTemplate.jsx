@@ -4,6 +4,7 @@ import escudoBeni from '../assets/cardex/500px-Escudo_del_Beni.png';
 
 const CALIBRATION_STORAGE_KEY = 'carnet_calibration_v2';
 const PRINT_MODE_STORAGE_KEY = 'carnet_print_mode_v2';
+const ACTIVE_SIDE_STORAGE_KEY = 'carnet_active_side_v2';
 
 export default function CarnetTemplate({ carnet, size = 'standard', defaultSide = 'both', isPrintArea = false }) {
   // PRIMERA OPCIÓN POR DEFECTO: 'data_only' (Sobreimpresión solo datos)
@@ -19,6 +20,12 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
   });
 
   const [activeSide, setActiveSide] = useState(() => {
+    try {
+      const savedMode = localStorage.getItem(PRINT_MODE_STORAGE_KEY);
+      if (savedMode === 'data_only') return 'front';
+      const savedSide = localStorage.getItem(ACTIVE_SIDE_STORAGE_KEY);
+      if (savedSide) return savedSide;
+    } catch {}
     return printMode === 'data_only' ? 'front' : defaultSide;
   });
 
@@ -28,7 +35,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
       offsetX: 0,
       offsetY: 0,
       includePhoto: true,
-      showGhostGuide: true,
+      showGhostGuide: false,
       lineOffsets: {
         codigo: { x: 0, y: 0 },
         linea1: { x: 0, y: 0 },
@@ -69,6 +76,10 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             setActiveSide('front');
           }
         }
+        const savedSide = localStorage.getItem(ACTIVE_SIDE_STORAGE_KEY);
+        if (savedSide && savedMode !== 'data_only') {
+          setActiveSide(savedSide);
+        }
         const savedCal = localStorage.getItem(CALIBRATION_STORAGE_KEY);
         if (savedCal) setCalibration(JSON.parse(savedCal));
       } catch {}
@@ -101,6 +112,14 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
     }
     try {
       localStorage.setItem(PRINT_MODE_STORAGE_KEY, mode);
+      window.dispatchEvent(new Event('carnet_settings_changed'));
+    } catch {}
+  };
+
+  const handleActiveSideChange = (side) => {
+    setActiveSide(side);
+    try {
+      localStorage.setItem(ACTIVE_SIDE_STORAGE_KEY, side);
       window.dispatchEvent(new Event('carnet_settings_changed'));
     } catch {}
   };
@@ -326,11 +345,14 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           color: transparent !important;
         }
         .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .puntos-guia-form {
-          border-bottom: none !important;
-          border-bottom-color: transparent !important;
+          border: none !important;
+          border-bottom: 1.2px solid transparent !important;
+          background: transparent !important;
         }
         .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .foto-box-real {
-          border: 1.2px dashed #CBD5E1 !important;
+          border: none !important;
+          border-color: transparent !important;
+          background: transparent !important;
         }
 
         /* ================== BLOQUE LOGO+ESCUDO ================== */
@@ -590,37 +612,98 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             page-break-after: avoid !important;
           }
 
-          /* REGLAS PRECISAS PARA SOBREIMPRESIÓN (SOLO DATOS): NO IMPRIMIR FONDOS NI TÍTULOS */
-          .tarjeta-carnet-real.modo-solo-datos {
+          /* REGLAS PRECISAS PARA MODO OFICIAL COMPLETO */
+          .tarjeta-carnet-real.modo-oficial {
+            background-color: #FDE97E !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .elemento-fijo-oficial {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .bloque-logo-oficial {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .etiqueta-fija-oficial {
+            visibility: visible !important;
+            color: #111 !important;
+            opacity: 1 !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .puntos-guia-form {
+            border-bottom: 1.2px dotted #333 !important;
+            visibility: visible !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .foto-box-real {
+            border: 1.5px solid #111 !important;
+            visibility: visible !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .bloque-resp-unidad {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+          .tarjeta-carnet-real.modo-oficial .linea-puntos-unidad {
+            display: block !important;
+            border-bottom: 1.2px dotted #333 !important;
+            visibility: visible !important;
+          }
+
+          /* REGLAS PRECISAS PARA SOBREIMPRESIÓN (SOLO DATOS): NO IMPRIMIR FONDOS, TÍTULOS NI NINGUNA LÍNEA */
+          .tarjeta-carnet-real.modo-solo-datos,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla {
             background: transparent !important;
             background-color: transparent !important;
             border: none !important;
             box-shadow: none !important;
+            outline: none !important;
           }
-          .modo-solo-datos .elemento-fijo-oficial {
+          .tarjeta-carnet-real.modo-solo-datos .elemento-fijo-oficial,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .elemento-fijo-oficial,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .elemento-fijo-oficial {
             display: none !important;
           }
-          .modo-solo-datos .etiqueta-fija-oficial {
+          .tarjeta-carnet-real.modo-solo-datos .etiqueta-fija-oficial,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .etiqueta-fija-oficial,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .etiqueta-fija-oficial {
             visibility: hidden !important;
             color: transparent !important;
+            border: none !important;
           }
-          .modo-solo-datos .linea-puntos-unidad {
+          .tarjeta-carnet-real.modo-solo-datos .linea-puntos-unidad,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .linea-puntos-unidad,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .linea-puntos-unidad {
             display: none !important;
           }
-          .modo-solo-datos .puntos-guia-form {
-            border-bottom: none !important;
+          .tarjeta-carnet-real.modo-solo-datos .puntos-guia-form,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .puntos-guia-form,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .puntos-guia-form {
+            border: none !important;
+            border-bottom: 1.2px solid transparent !important;
             border-bottom-color: transparent !important;
+            background: transparent !important;
+            outline: none !important;
           }
-          .modo-solo-datos .foto-box-real {
+          .tarjeta-carnet-real.modo-solo-datos .foto-box-real,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .foto-box-real,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .foto-box-real {
             border: none !important;
             border-color: transparent !important;
             background: transparent !important;
             background-color: transparent !important;
+            box-shadow: none !important;
+            outline: none !important;
           }
-          .modo-solo-datos .foto-img-real {
+          .tarjeta-carnet-real.modo-solo-datos .foto-img-real,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .foto-img-real,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .foto-img-real {
             display: ${calibration.includePhoto ? 'block' : 'none'} !important;
           }
-          .modo-solo-datos.dorso {
+          .tarjeta-carnet-real.modo-solo-datos.dorso {
             display: none !important;
           }
         }
@@ -666,7 +749,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
               <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
                 <button
                   type="button"
-                  onClick={() => setActiveSide('front')}
+                  onClick={() => handleActiveSideChange('front')}
                   className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                     activeSide === 'front' ? 'bg-white text-slate-800 shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-200/50'
                   }`}
@@ -675,7 +758,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveSide('back')}
+                  onClick={() => handleActiveSideChange('back')}
                   className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                     activeSide === 'back' ? 'bg-white text-slate-800 shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-200/50'
                   }`}
@@ -684,7 +767,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveSide('both')}
+                  onClick={() => handleActiveSideChange('both')}
                   className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                     activeSide === 'both' ? 'bg-white text-slate-800 shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-200/50'
                   }`}
@@ -907,7 +990,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             className={`tarjeta-carnet-real carnet-oficial ${sizeClass} ${
               printMode === 'official'
                 ? 'modo-oficial'
-                : `modo-solo-datos ${calibration.showGhostGuide ? 'con-guia-pantalla' : 'sin-guia-pantalla'}`
+                : `modo-solo-datos ${!isPrintArea && calibration.showGhostGuide ? 'con-guia-pantalla' : 'sin-guia-pantalla'}`
             }`}
           >
             {/* Logo Oficial de Beni con Escudo Centrado (Elemento fijo) */}

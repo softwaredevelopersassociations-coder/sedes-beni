@@ -36,6 +36,7 @@ export default function EmisionCarnets() {
   useLiveRefresh(() => fetchCarnets({ quiet: true }), true, 12000);
 
   const handlePrint = () => {
+    window.dispatchEvent(new Event('carnet_settings_changed'));
     window.print();
   };
 

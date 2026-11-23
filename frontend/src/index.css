@@ -181,27 +181,99 @@ html.dark ::-webkit-scrollbar-thumb {
     visibility: visible;
   }
 
-  /* Excepciones de sobreimpresión (modo solo datos) */
-  .print-area .elemento-fijo-oficial,
-  .print-area .ocultar-en-sobreimpresion {
-    display: none !important;
+  /* ================= MODO CARNET COMPLETO (OFICIAL) ================= */
+  .print-area .modo-oficial {
+    background-color: #FDE97E !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
-  .print-area .etiqueta-fija-oficial {
-    visibility: hidden !important;
-    color: transparent !important;
+  .print-area .modo-oficial .elemento-fijo-oficial {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
-  .print-area .modo-solo-datos .puntos-guia-form {
-    border-bottom: none !important;
-    border-bottom-color: transparent !important;
+  .print-area .modo-oficial .bloque-logo-oficial {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
-  .print-area .modo-solo-datos {
+  .print-area .modo-oficial .etiqueta-fija-oficial {
+    visibility: visible !important;
+    color: #111 !important;
+    opacity: 1 !important;
+  }
+
+  .print-area .modo-oficial .puntos-guia-form {
+    border-bottom: 1.2px dotted #333 !important;
+    visibility: visible !important;
+  }
+
+  .print-area .modo-oficial .foto-box-real {
+    border: 1.5px solid #111 !important;
+    visibility: visible !important;
+  }
+
+  .print-area .modo-oficial .bloque-resp-unidad {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .print-area .modo-oficial .linea-puntos-unidad {
+    display: block !important;
+    border-bottom: 1.2px dotted #333 !important;
+    visibility: visible !important;
+  }
+
+  /* ================= MODO SOBREIMPRESIÓN (SOLO DATOS: NINGUNA LÍNEA, SOLO DATOS) ================= */
+  .print-area .modo-solo-datos,
+  .print-area .tarjeta-carnet-real.modo-solo-datos {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .print-area .modo-solo-datos .elemento-fijo-oficial,
+  .print-area .modo-solo-datos .ocultar-en-sobreimpresion {
+    display: none !important;
+  }
+
+  .print-area .modo-solo-datos .etiqueta-fija-oficial {
+    visibility: hidden !important;
+    color: transparent !important;
+    border: none !important;
+  }
+
+  /* En sobreimpresión NO debe imprimirse ninguna línea guía/puntos ni bordes */
+  .print-area .modo-solo-datos .puntos-guia-form,
+  .print-area .tarjeta-carnet-real.modo-solo-datos .puntos-guia-form {
+    border: none !important;
+    border-bottom: 1.2px solid transparent !important;
+    background: transparent !important;
+    outline: none !important;
+  }
+
+  .print-area .modo-solo-datos .foto-box-real,
+  .print-area .tarjeta-carnet-real.modo-solo-datos .foto-box-real {
+    border: none !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .print-area .modo-solo-datos .linea-puntos-unidad {
+    display: none !important;
+  }
+
+  .print-area .modo-solo-datos.dorso {
+    display: none !important;
   }
 
   /* Posicionar el área de impresión en el origen de la hoja Carta */

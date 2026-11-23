@@ -156,6 +156,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
   };
 
   const handlePrint = () => {
+    window.dispatchEvent(new Event('carnet_settings_changed'));
     window.print();
   };
 
