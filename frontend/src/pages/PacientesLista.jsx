@@ -5,7 +5,9 @@ import {
   Edit3, Settings2, X, RefreshCw, AlertTriangle, CheckCircle2, Clock, Check
 } from 'lucide-react';
 import CarnetTemplate from '../components/CarnetTemplate';
+import { PatientPhotoPrintControls } from '../components/PatientPhotoPrint';
 import useLiveRefresh from '../hooks/useLiveRefresh';
+import { printDocument, printPhotoSheet } from '../utils/printDocument';
 
 export default function PacientesLista({ onNavigate, setSharedData }) {
   const [query, setQuery] = useState('');
@@ -26,6 +28,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
   // Impresión de Carnet desde el expediente
   const [carnetToPrint, setCarnetToPrint] = useState(null);
   const [printSize, setPrintSize] = useState('standard');
+  const [photoCopies, setPhotoCopies] = useState(1);
 
   // Modal de Renovación de Carnet
   const [renovacionPaciente, setRenovacionPaciente] = useState(null);
@@ -111,12 +114,18 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
     e.preventDefault();
     if (!renovacionPaciente) return;
 
-    if (renovacionKardex) {
-      const trimmed = renovacionKardex.trim();
-      if (trimmed.startsWith('-') || /^-\d+$/.test(trimmed)) {
-        setError('El número de carnet físico no puede ser un número negativo.');
-        return;
-      }
+    const trimmed = renovacionKardex.trim().toUpperCase();
+    if (!trimmed) {
+      setError('Ingresa el número del nuevo carnet sanitario para continuar.');
+      return;
+    }
+    if (trimmed.length > 20) {
+      setError('El número de carnet sanitario admite hasta 20 caracteres.');
+      return;
+    }
+    if (trimmed.startsWith('-') || /^-\d+$/.test(trimmed)) {
+      setError('El número de carnet físico no puede ser un número negativo.');
+      return;
     }
 
     setSubmittingRenovacion(true);
@@ -127,7 +136,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
       await api.pacientes.openTramite(renovacionPaciente.id, {
         tipo_tramite: 'Renovación',
         costo_bs: parseFloat(renovacionCosto) || 30.00,
-        numero_carnet_fisico: renovacionKardex.trim().toUpperCase() || null
+        numero_carnet_fisico: trimmed
       });
 
       const pacNombre = `${renovacionPaciente.nombres} ${renovacionPaciente.apellidos}`;
@@ -516,12 +525,18 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                             </li>
                           )}
                           <li>
-                            <span className="font-semibold text-slate-400">Examen Físico:</span> Piel: {item.examen_fisico?.piel || '—'}, Resp: {item.examen_fisico?.respiratorio || '—'}, Card: {item.examen_fisico?.cardiovascular || '—'}, Dental: {item.examen_fisico?.dental || '—'}
-                            {item.examen_fisico?.otros && (
-                              <span className="block text-[11px] text-slate-500 mt-0.5">
-                                <strong>Otros hallazgos:</strong> {item.examen_fisico.otros}
-                              </span>
-                            )}
+                            <span className="font-semibold text-slate-400">Revisión general:</span>
+                            <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                              <span><strong>Dérmica:</strong> {item.revision_general?.evaluacion_dermica || '—'}</span>
+                              <span><strong>Respiratoria:</strong> {item.revision_general?.evaluacion_respiratoria || '—'}</span>
+                              <span><strong>Cardiovascular:</strong> {item.revision_general?.evaluacion_cardiovascular || '—'}</span>
+                              <span><strong>Gastrointestinal:</strong> {item.revision_general?.evaluacion_gastrointestinal || '—'}</span>
+                              <span><strong>Peso:</strong> {item.revision_general?.peso != null ? `${item.revision_general.peso} kg` : '—'}</span>
+                              <span><strong>Altura:</strong> {item.revision_general?.altura != null ? `${item.revision_general.altura} m` : '—'}</span>
+                              <span><strong>Presión:</strong> {item.revision_general?.presion || '—'}</span>
+                              <span><strong>Temperatura:</strong> {item.revision_general?.temperatura != null ? `${item.revision_general.temperatura} °C` : '—'}</span>
+                              <span><strong>Pulso:</strong> {item.revision_general?.pulso ?? '—'}{item.revision_general?.pulso != null ? ' lpm' : ''}</span>
+                            </div>
                           </li>
                           <li><span className="font-semibold text-slate-400">Antecedentes:</span> {item.antecedentes_patologicos || 'Ninguno'}</li>
                           <li><span className="font-semibold text-slate-400">Diagnóstico:</span> <strong>{item.diagnostico}</strong></li>
@@ -604,13 +619,19 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                     <CarnetTemplate carnet={carnetToPrint} size={printSize} />
                   </div>
                 </div>
+                <PatientPhotoPrintControls
+                  photoUrl={carnetToPrint.foto_url}
+                  copies={photoCopies}
+                  onCopiesChange={setPhotoCopies}
+                  onPrint={() => printPhotoSheet(carnetToPrint.foto_url, photoCopies)}
+                />
               </div>
 
               <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button onClick={() => setCarnetToPrint(null)} className="w-full sm:w-auto text-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
                   Cerrar
                 </button>
-                <button onClick={() => { window.dispatchEvent(new Event('carnet_settings_changed')); window.print(); }} className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                <button onClick={printDocument} className="w-full sm:w-auto justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
                   <Printer size={15} />
                   Proceder a Imprimir
                 </button>
@@ -928,12 +949,14 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
               {/* N° Nuevo de Carnet Físico / Kardex */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  🪪 N° Nuevo de Carnet Físico / Kardex
+                  🪪 N° Nuevo de Carnet Sanitario *
                   <span className="text-[11px] font-normal text-slate-400 ml-1">(Número pre-impreso del nuevo cartón)</span>
                 </label>
                 <input
                   type="text"
                   value={renovacionKardex}
+                  maxLength={20}
+                  required
                   onChange={(e) => {
                     let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
                     if (val.startsWith('-')) val = val.replace(/^-+/, '');
@@ -943,7 +966,7 @@ export default function PacientesLista({ onNavigate, setSharedData }) {
                   className="w-full px-3 py-2 border-2 border-blue-300 rounded-xl text-base font-bold font-mono text-blue-800 outline-none focus:border-blue-600 bg-white uppercase placeholder:text-slate-300"
                 />
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Opcional si aún no se tiene el cartón en mano; se puede asignar o confirmar al emitir.
+                  Este número identifica el trámite y debe ser único.
                 </p>
               </div>
 

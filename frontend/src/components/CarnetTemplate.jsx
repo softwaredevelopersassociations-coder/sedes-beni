@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sliders, RotateCcw, Check, Eye, EyeOff, Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
-import escudoBeni from '../assets/cardex/500px-Escudo_del_Beni.png';
+import escudoBeni from '../assets/cardex/Escudo_del_Beni.png';
+import { PHOTO_PRINT_SIZE_MM } from '../utils/photoPrintSettings';
 
 const CALIBRATION_STORAGE_KEY = 'carnet_calibration_v2';
 const PRINT_MODE_STORAGE_KEY = 'carnet_print_mode_v2';
@@ -35,7 +36,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
       offsetX: 0,
       offsetY: 0,
       includePhoto: true,
-      showGhostGuide: false,
+      showGhostGuide: true,
       lineOffsets: {
         codigo: { x: 0, y: 0 },
         linea1: { x: 0, y: 0 },
@@ -203,7 +204,12 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
   const fechaValidez = (() => {
     if (!carnet.fecha_vencimiento) return '—';
     try {
-      const d = new Date(carnet.fecha_vencimiento);
+      const value = String(carnet.fecha_vencimiento);
+      // PostgreSQL DATE se serializa como YYYY-MM-DD; formatear sus partes evita
+      // que zonas horarias al oeste de UTC lo muestren como el día anterior.
+      const dateParts = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (dateParts) return `${dateParts[3]}/${dateParts[2]}/${dateParts[1]}`;
+      const d = new Date(value);
       return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-ES');
     } catch {
       return '—';
@@ -231,26 +237,70 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
   // Factor de escala para tarjeta PVC CR80
   const s = isCR80 ? 54 / 69 : 1;
 
-  // Función para adaptar dinámicamente el tamaño de texto de campos largos para que entren completos
-  const getDynamicStyle = (text, basePt = 6.6) => {
-    const len = (text || '').length;
-    if (len > 36) return { fontSize: `${4.4 * s}pt`, letterSpacing: '-0.25px', lineHeight: 1 };
-    if (len > 28) return { fontSize: `${5.0 * s}pt`, letterSpacing: '-0.15px', lineHeight: 1 };
-    if (len > 22) return { fontSize: `${5.6 * s}pt`, letterSpacing: '-0.05px', lineHeight: 1 };
-    if (len > 16) return { fontSize: `${6.1 * s}pt`, lineHeight: 1 };
-    return { fontSize: `${basePt * s}pt`, lineHeight: 1 };
+  // Reducir el valor hasta que quepa en el espacio real disponible de su renglón.
+  const getDynamicStyle = (text, maxWidthMm, basePt = 8.5) => {
+    let fontSize = basePt;
+    const value = String(text || '');
+
+    if (value && typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.font = `700 ${basePt}pt Arial`;
+        const measuredWidth = context.measureText(value).width;
+        const availableWidth = (maxWidthMm * 96) / 25.4;
+        if (measuredWidth > availableWidth) {
+          fontSize = Math.max(4.2, basePt * (availableWidth / measuredWidth));
+        }
+      }
+    }
+
+    return { fontSize: `${fontSize * s}pt`, lineHeight: 1 };
+  };
+
+  const getFieldValueWidthMm = (labelText = '', gapMm = 1) => {
+    const leftMm = isDataOnly ? 33.5 : 34.0;
+    const rightMm = isDataOnly ? 4.5 : 4.0;
+    const availableBaseMm = (cardWidth - (leftMm + rightMm) * s) / s;
+    const label = String(labelText || '');
+    let labelWidthMm = (label.length * 8.5 * 25.4) / 72 * 0.5;
+
+    if (label && typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.font = '800 8.5pt Arial';
+        labelWidthMm = (context.measureText(label).width * 25.4) / 96;
+      }
+    }
+
+    return Math.max(5, availableBaseMm - labelWidthMm - gapMm);
   };
 
   // Cálculo de coordenadas calibradas para cada campo
   const isDataOnly = printMode === 'data_only';
-
-  const getFieldStyle = (fieldId, baseTopMm, baseLeftMm = 35.0, baseRightMm = 2.5) => {
+  const valueBasePt = isDataOnly ? 6.6 : 8.5;
+  const getFieldStyle = (
+    fieldId,
+    baseTopMm,
+    baseLeftMm = isDataOnly ? 33.5 : 34.0,
+    baseRightMm = isDataOnly ? 4.5 : 4.0
+  ) => {
     const globalX = isDataOnly ? calibration.offsetX : 0;
     const globalY = isDataOnly ? calibration.offsetY : 0;
     const lineX = isDataOnly ? (calibration.lineOffsets?.[fieldId]?.x || 0) : 0;
     const lineY = isDataOnly ? (calibration.lineOffsets?.[fieldId]?.y || 0) : 0;
 
-    const top = (baseTopMm + globalY + lineY) * s;
+    const officialFieldTop = {
+      linea1: 20.0,
+      linea2: 27.0,
+      actividad: 32.5,
+      trabajo: 39.0,
+      sangre: 45.5,
+      fecha: 52.0
+    };
+    const topBaseMm = isDataOnly ? baseTopMm : (officialFieldTop[fieldId] ?? baseTopMm);
+    const top = (topBaseMm + globalY + lineY) * s;
     const left = (baseLeftMm + globalX + lineX) * s;
     const right = (baseRightMm - globalX - lineX) * s;
 
@@ -268,8 +318,8 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
     const fotoY = isDataOnly ? (calibration.lineOffsets?.foto?.y || 0) : 0;
 
     return {
-      top: `${(18.5 + globalY + fotoY) * s}mm`,
-      left: `${(5.0 + globalX + fotoX) * s}mm`
+      top: `${((isDataOnly ? 18.8 : 20.5) + globalY + fotoY) * s}mm`,
+      left: `${((isDataOnly ? 3.0 : 3.5) + globalX + fotoX) * s}mm`
     };
   };
 
@@ -280,8 +330,8 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
     const codY = isDataOnly ? (calibration.lineOffsets?.codigo?.y || 0) : 0;
 
     return {
-      top: `${(2.2 + globalY + codY) * s}mm`,
-      right: `${(4.0 - globalX - codX) * s}mm`
+      top: `${(2.8 + globalY + codY) * s}mm`,
+      right: `${(7.4 - globalX - codX) * s}mm`
     };
   };
 
@@ -358,20 +408,22 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
         /* ================== BLOQUE LOGO+ESCUDO ================== */
         .bloque-logo-oficial {
           position: absolute;
-          top: ${2.0 * s}mm;
-          left: ${3.5 * s}mm;
-          width: ${33.0 * s}mm;
+          top: ${4.8 * s}mm;
+          left: ${3.2 * s}mm;
+          width: ${30.5 * s}mm;
           display: flex;
           flex-direction: column;
+          align-items: flex-start;
         }
         .fila-escudo-beni {
           display: flex;
+          flex-direction: row;
           align-items: center;
           justify-content: flex-start;
           gap: 0;
         }
         .contenedor-escudo-beni {
-          width: ${10.5 * s}mm;
+          width: ${9.0 * s}mm;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -379,17 +431,17 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
         }
         .escudo-img-beni {
           width: 100%;
-          max-width: ${10.0 * s}mm;
+          max-width: ${9.0 * s}mm;
           height: auto;
-          max-height: ${13.0 * s}mm;
+          max-height: ${11.0 * s}mm;
           object-fit: contain;
           pointer-events: none;
         }
         .linea-vertical-separador {
           width: ${0.4 * s}mm;
-          height: ${12.0 * s}mm;
+          height: ${11.0 * s}mm;
           background-color: #0A3D18;
-          margin: 0 ${0.8 * s}mm;
+          margin: 0 ${0.7 * s}mm;
           flex-shrink: 0;
           align-self: center;
         }
@@ -402,7 +454,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           padding-top: 0;
         }
         .subt-gobierno {
-          font-size: ${3.1 * s}pt;
+          font-size: ${3.4 * s}pt;
           font-weight: 800;
           line-height: 1.08;
           color: #0A3D18;
@@ -412,7 +464,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
         }
         .palabra-beni {
           font-family: 'Arial Black', Arial, sans-serif;
-          font-size: ${12.5 * s}pt;
+          font-size: ${14.0 * s}pt;
           font-weight: 900;
           line-height: 0.95;
           letter-spacing: 0.8px;
@@ -431,10 +483,10 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           white-space: nowrap;
         }
         .subtitulos-abajo {
-          margin-top: ${0.6 * s}mm;
+          margin-top: ${0.5 * s}mm;
           font-family: 'Arial Narrow', Arial, sans-serif;
-          font-size: ${2.3 * s}pt;
-          font-weight: 800;
+          font-size: ${3.0 * s}pt;
+          font-weight: 700;
           line-height: 1.18;
           color: #0A3D18;
           text-align: center;
@@ -453,31 +505,33 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
         }
         .numero-rojo-carnet {
           color: #C0392B;
-          font-size: ${13.0 * s}pt;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: ${18.0 * s}pt;
           font-weight: 900;
-          letter-spacing: 0.8px;
+          margin-top: ${1.0 * s}mm;
+          letter-spacing: 1px;
           white-space: nowrap;
           line-height: 1;
           text-align: center;
-          margin-bottom: ${1.6 * s}mm;
+          margin-bottom: ${1.0 * s}mm;
         }
         .titulo-carnet-sanitario {
           color: #111;
           font-family: 'Arial Black', Arial, sans-serif;
-          font-size: ${10.5 * s}pt;
+          font-size: ${13.2 * s}pt;
           font-weight: 900;
           letter-spacing: 0.5px;
           white-space: nowrap;
-          line-height: 1;
+          line-height: 1.1;
           text-align: center;
         }
 
         /* ================== RECUADRO DE FOTO ================== */
         .foto-box-real {
           position: absolute;
-          width: ${28.0 * s}mm;
-          height: ${36.0 * s}mm;
-          border: 1.5px solid #111;
+          width: ${PHOTO_PRINT_SIZE_MM * s}mm;
+          height: ${PHOTO_PRINT_SIZE_MM * s}mm;
+          border: 2.5px solid #111;
           background-color: rgba(255,255,255,0.15);
           box-sizing: border-box;
           overflow: hidden;
@@ -496,7 +550,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           position: absolute;
           display: flex;
           align-items: flex-end;
-          font-size: ${7.0 * s}pt;
+          font-size: ${8.5 * s}pt;
           font-weight: 800;
           color: #111;
           line-height: 1;
@@ -510,16 +564,19 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           flex-shrink: 0;
         }
         .puntos-guia-form {
-          border-bottom: 1.2px dotted #333;
+          border-bottom: 1px dotted #111;
           flex-grow: 1;
-          margin-left: ${0.5 * s}mm;
-          min-height: ${2.0 * s}mm;
+          min-width: 0;
+          margin-left: ${1.0 * s}mm;
+          min-height: ${1.5 * s}mm;
           display: flex;
           align-items: flex-end;
           overflow: visible;
-          padding-left: ${0.5 * s}mm;
+          padding-left: 0;
         }
         .valor-impreso-campo {
+          display: block;
+          max-width: 100%;
           font-weight: 700;
           color: #111;
           text-transform: uppercase;
@@ -539,21 +596,21 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           text-align: center;
         }
         .linea-puntos-unidad {
-          width: ${42.0 * s}mm;
+          width: ${34.0 * s}mm;
           border-bottom: 1.2px dotted #333;
           margin-bottom: ${1.0 * s}mm;
         }
         .texto-resp-unidad {
-          font-size: ${7.5 * s}pt;
+          font-size: ${9.0 * s}pt;
           font-weight: 900;
-          letter-spacing: 0.8px;
+          letter-spacing: 0.5px;
           color: #111;
           white-space: nowrap;
         }
 
         /* ================== REVERSO (DORSO) ================== */
         .tarjeta-carnet-real.dorso {
-          padding: ${6.0 * s}mm ${6.0 * s}mm;
+          padding: ${6.0 * s}mm ${5.0 * s}mm;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
@@ -583,7 +640,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           margin-bottom: ${2.0 * s}mm;
         }
         .dorso-linea-firma {
-          width: ${42.0 * s}mm;
+          width: ${40.0 * s}mm;
           border-bottom: 1.5px dotted #111;
           margin-bottom: ${1.0 * s}mm;
         }
@@ -634,11 +691,11 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             opacity: 1 !important;
           }
           .tarjeta-carnet-real.modo-oficial .puntos-guia-form {
-            border-bottom: 1.2px dotted #333 !important;
+            border-bottom: 1px dotted #111 !important;
             visibility: visible !important;
           }
           .tarjeta-carnet-real.modo-oficial .foto-box-real {
-            border: 1.5px solid #111 !important;
+            border: 2.5px solid #111 !important;
             visibility: visible !important;
           }
           .tarjeta-carnet-real.modo-oficial .bloque-resp-unidad {
@@ -648,7 +705,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           }
           .tarjeta-carnet-real.modo-oficial .linea-puntos-unidad {
             display: block !important;
-            border-bottom: 1.2px dotted #333 !important;
+            border-bottom: 1px dotted #111 !important;
             visibility: visible !important;
           }
 
@@ -702,6 +759,13 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
           .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .foto-img-real,
           .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .foto-img-real {
             display: ${calibration.includePhoto ? 'block' : 'none'} !important;
+          }
+          /* La foto se imprime por separado; el carnet conserva su espacio vacío. */
+          .tarjeta-carnet-real.modo-oficial .foto-img-real,
+          .tarjeta-carnet-real.modo-solo-datos .foto-img-real,
+          .tarjeta-carnet-real.modo-solo-datos.con-guia-pantalla .foto-img-real,
+          .tarjeta-carnet-real.modo-solo-datos.sin-guia-pantalla .foto-img-real {
+            display: none !important;
           }
           .tarjeta-carnet-real.modo-solo-datos.dorso {
             display: none !important;
@@ -891,15 +955,17 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
                     <span>👁️ Ver silueta guía en pantalla</span>
                   </label>
 
-                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700 select-none">
-                    <input
-                      type="checkbox"
-                      checked={calibration.includePhoto}
-                      onChange={(e) => updateCalibration({ includePhoto: e.target.checked })}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <span>📷 Imprimir fotografía</span>
-                  </label>
+                  {isDataOnly && (
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={calibration.includePhoto}
+                        onChange={(e) => updateCalibration({ includePhoto: e.target.checked })}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>📷 Mostrar foto en vista previa (no se imprime)</span>
+                    </label>
+                  )}
                 </div>
 
                 <button
@@ -1009,14 +1075,14 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
               </div>
               <div className="subtitulos-abajo">
                 GOBIERNO AUTÓNOMO DPTO. BENI<br />
-                • SERVICIO DEPARTAMENTAL DE SALUD – SEDES BENI<br />
+                SERVICIO DEPARTAMENTAL DE SALUD - SEDES BENI<br />
                 UNIDAD SALUD AMBIENTAL
               </div>
             </div>
 
             {/* Número y Título Derecho Centrados */}
             <div className="bloque-titulos-derecha" style={getCodigoStyle()}>
-              <div className="numero-rojo-carnet">Nº {numCarnet}</div>
+              {!isDataOnly && <div className="numero-rojo-carnet">N° {numCarnet}</div>}
               <div className="titulo-carnet-sanitario elemento-fijo-oficial">CARNET SANITARIO</div>
             </div>
 
@@ -1036,7 +1102,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             <div className="linea-campo-frente" style={getFieldStyle('linea1', 19.5)}>
               <span className="etiqueta-form etiqueta-fija-oficial">Nombre y Apellidos:</span>
               <div className="puntos-guia-form">
-                <span className="valor-impreso-campo" style={getDynamicStyle(linea1Nombre, 6.6)}>
+                <span className="valor-impreso-campo" style={getDynamicStyle(linea1Nombre, getFieldValueWidthMm('Nombre y Apellidos:'), valueBasePt)}>
                   {linea1Nombre}
                 </span>
               </div>
@@ -1045,7 +1111,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             {/* Línea 2: Segunda raya punteada completa para Apellidos / Continuación */}
             <div className="linea-campo-frente" style={getFieldStyle('linea2', 26.0)}>
               <div className="puntos-guia-form" style={{ marginLeft: 0 }}>
-                <span className="valor-impreso-campo" style={getDynamicStyle(linea2Nombre, 6.6)}>
+                <span className="valor-impreso-campo" style={getDynamicStyle(linea2Nombre, getFieldValueWidthMm(''), valueBasePt)}>
                   {linea2Nombre}
                 </span>
               </div>
@@ -1055,7 +1121,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             <div className="linea-campo-frente" style={getFieldStyle('actividad', 32.5)}>
               <span className="etiqueta-form etiqueta-fija-oficial">Actividad:</span>
               <div className="puntos-guia-form">
-                <span className="valor-impreso-campo" style={getDynamicStyle(actividadTexto, 6.6)}>
+                <span className="valor-impreso-campo" style={getDynamicStyle(actividadTexto, getFieldValueWidthMm('Actividad:'), valueBasePt)}>
                   {actividadTexto}
                 </span>
               </div>
@@ -1065,7 +1131,7 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             <div className="linea-campo-frente" style={getFieldStyle('trabajo', 39.0)}>
               <span className="etiqueta-form etiqueta-fija-oficial">Lugar de Trabajo:</span>
               <div className="puntos-guia-form">
-                <span className="valor-impreso-campo" style={getDynamicStyle(lugarTrabajo, 6.4)}>
+                <span className="valor-impreso-campo" style={getDynamicStyle(lugarTrabajo, getFieldValueWidthMm('Lugar de Trabajo:'), valueBasePt)}>
                   {lugarTrabajo}
                 </span>
               </div>
@@ -1074,13 +1140,13 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             {/* Línea 5: Grupo Sanguíneo y Factor Rh */}
             <div className="linea-campo-frente" style={getFieldStyle('sangre', 45.5)}>
               <span className="etiqueta-form etiqueta-fija-oficial">Grupo Sanguíneo:</span>
-              <div className="puntos-guia-form" style={{ maxWidth: `${10.0 * s}mm` }}>
+              <div className="puntos-guia-form" style={{ maxWidth: `${5.5 * s}mm` }}>
                 <span className="valor-impreso-campo">{sangre.grupo}</span>
               </div>
-              <span className="etiqueta-form etiqueta-fija-oficial" style={{ marginLeft: `${1.5 * s}mm` }}>
+              <span className="etiqueta-form etiqueta-fija-oficial" style={{ marginLeft: `${1.0 * s}mm` }}>
                 Factor Rh:
               </span>
-              <div className="puntos-guia-form">
+              <div className="puntos-guia-form" style={{ maxWidth: `${5.5 * s}mm` }}>
                 <span className="valor-impreso-campo">{sangre.rh}</span>
               </div>
             </div>
@@ -1089,7 +1155,9 @@ export default function CarnetTemplate({ carnet, size = 'standard', defaultSide 
             <div className="linea-campo-frente" style={getFieldStyle('fecha', 52.0)}>
               <span className="etiqueta-form etiqueta-fija-oficial">Fecha de validez:</span>
               <div className="puntos-guia-form">
-                <span className="valor-impreso-campo">{fechaValidez}</span>
+                <span className="valor-impreso-campo" style={getDynamicStyle(fechaValidez, getFieldValueWidthMm('Fecha de validez:'), valueBasePt)}>
+                  {fechaValidez}
+                </span>
               </div>
             </div>
 

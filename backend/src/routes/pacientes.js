@@ -4,79 +4,95 @@ const db = require('../config/db');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 const { logAuditoria } = require('../utils/logger');
 
-// GET /api/pacientes (Búsqueda avanzada y listado)
+const ciCompletoSql = (alias = 'p') => `CASE WHEN ${alias}.cedula_complemento IS NULL THEN ${alias}.cedula_identidad ELSE ${alias}.cedula_identidad || '-' || ${alias}.cedula_complemento END`;
+
+function parseCedula(cedula, complemento) {
+  let identidad = String(cedula || '').trim().toUpperCase();
+  let ciComplemento = String(complemento || '').trim().toUpperCase() || null;
+  if (!ciComplemento) {
+    const match = identidad.match(/^([0-9]+)-([A-Z0-9]{1,5})$/);
+    if (match) {
+      identidad = match[1];
+      ciComplemento = match[2];
+    }
+  }
+  return { identidad, complemento: ciComplemento };
+}
+
+function normalizeCardNumber(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function validateCardNumber(value) {
+  if (!value) return 'El número de carnet sanitario es obligatorio.';
+  if (value.length > 20) return 'El número de carnet sanitario admite hasta 20 caracteres.';
+  if (value.startsWith('-') || /^-\d+$/.test(value)) return 'El número de carnet sanitario no puede ser negativo.';
+  return null;
+}
+
+// GET /api/pacientes
 router.get('/', verifyToken, async (req, res) => {
   const { query, mercado, ocupacion, filtro_estado } = req.query;
   let sql = `
-    SELECT p.*, 
-           t.id as tramite_id, t.tipo_tramite, t.estado, t.codigo_carnet, t.fecha_vencimiento, t.numero_carnet_fisico,
-           t_prev.codigo_carnet as ultimo_codigo_carnet,
-           t_prev.fecha_vencimiento as ultima_fecha_vencimiento,
-           t_prev.numero_carnet_fisico as ultimo_numero_carnet_fisico
+    SELECT p.*, ${ciCompletoSql('p')} AS ci, p.ci_expedido AS ci_exp,
+           p.fecha_registro AS created_at,
+           t.id AS tramite_id, t.tipo_tramite, t.estado, t.codigo_carnet,
+           t.fecha_vencimiento, t.numero_carnet_sanitario AS numero_carnet_fisico,
+           t_prev.codigo_carnet AS ultimo_codigo_carnet,
+           t_prev.fecha_vencimiento AS ultima_fecha_vencimiento,
+           t_prev.numero_carnet_sanitario AS ultimo_numero_carnet_fisico
     FROM pacientes p
     LEFT JOIN LATERAL (
-      SELECT id, tipo_tramite, estado, codigo_carnet, fecha_vencimiento, numero_carnet_fisico
-      FROM tramites 
-      WHERE paciente_id = p.id 
-      ORDER BY created_at DESC 
-      LIMIT 1
+      SELECT id, tipo_tramite, estado, codigo_carnet, fecha_vencimiento,
+             numero_carnet_sanitario, fecha_registro
+      FROM tramites WHERE paciente_id = p.id
+      ORDER BY fecha_registro DESC, id DESC LIMIT 1
     ) t ON true
     LEFT JOIN LATERAL (
-      SELECT codigo_carnet, fecha_vencimiento, numero_carnet_fisico
-      FROM tramites 
-      WHERE paciente_id = p.id AND estado = 'Aprobado'
-      ORDER BY fecha_vencimiento DESC NULLS LAST, created_at DESC 
-      LIMIT 1
+      SELECT codigo_carnet, fecha_vencimiento, numero_carnet_sanitario, fecha_registro
+      FROM tramites WHERE paciente_id = p.id AND estado = 'Aprobado'
+      ORDER BY fecha_vencimiento DESC NULLS LAST, fecha_registro DESC LIMIT 1
     ) t_prev ON true
     WHERE 1=1
   `;
   const params = [];
   let paramIndex = 1;
 
-  if (query && query.trim() !== '') {
+  if (query && query.trim()) {
     const searchVal = `%${query.trim()}%`;
     sql += ` AND (
-      p.ci LIKE $${paramIndex} 
-      OR p.nombres ILIKE $${paramIndex} 
-      OR p.apellidos ILIKE $${paramIndex} 
+      ${ciCompletoSql('p')} ILIKE $${paramIndex}
+      OR p.nombres ILIKE $${paramIndex}
+      OR p.apellidos ILIKE $${paramIndex}
       OR p.empresa_trabajo ILIKE $${paramIndex}
-      OR t.numero_carnet_fisico ILIKE $${paramIndex}
+      OR t.numero_carnet_sanitario ILIKE $${paramIndex}
       OR t.codigo_carnet ILIKE $${paramIndex}
-      OR EXISTS (
-        SELECT 1 FROM tramites tr 
-        WHERE tr.paciente_id = p.id 
-        AND (tr.numero_carnet_fisico ILIKE $${paramIndex} OR tr.codigo_carnet ILIKE $${paramIndex})
-      )
+      OR EXISTS (SELECT 1 FROM tramites tr WHERE tr.paciente_id = p.id
+                 AND (tr.numero_carnet_sanitario ILIKE $${paramIndex} OR tr.codigo_carnet ILIKE $${paramIndex}))
     )`;
     params.push(searchVal);
-    paramIndex++;
+    paramIndex += 1;
   }
-
-  if (mercado && mercado.trim() !== '') {
+  if (mercado && mercado.trim()) {
     sql += ` AND p.mercado ILIKE $${paramIndex}`;
     params.push(`%${mercado.trim()}%`);
-    paramIndex++;
+    paramIndex += 1;
   }
-
-  if (ocupacion && ocupacion.trim() !== '') {
+  if (ocupacion && ocupacion.trim()) {
     sql += ` AND p.ocupacion ILIKE $${paramIndex}`;
     params.push(`%${ocupacion.trim()}%`);
-    paramIndex++;
+    paramIndex += 1;
   }
-
-  // Filtro por estado de vigencia de carnet
   if (filtro_estado === 'vencidos') {
-    sql += ` AND (
-      (t.estado = 'Aprobado' AND t.fecha_vencimiento < CURRENT_DATE)
-      OR (t_prev.fecha_vencimiento IS NOT NULL AND t_prev.fecha_vencimiento < CURRENT_DATE AND (t.estado IS NULL OR t.estado NOT IN ('Aprobado', 'Pendiente Laboratorio', 'Pendiente Medicina')))
-    )`;
+    sql += ` AND ((t.estado = 'Aprobado' AND t.fecha_vencimiento < CURRENT_DATE)
+      OR (t_prev.fecha_vencimiento IS NOT NULL AND t_prev.fecha_vencimiento < CURRENT_DATE
+      AND (t.estado IS NULL OR t.estado NOT IN ('Aprobado', 'Pendiente Laboratorio', 'Pendiente Medicina'))))`;
   } else if (filtro_estado === 'vigentes') {
-    sql += ` AND (t.estado = 'Aprobado' AND t.fecha_vencimiento >= CURRENT_DATE)`;
+    sql += ` AND t.estado = 'Aprobado' AND t.fecha_vencimiento >= CURRENT_DATE`;
   } else if (filtro_estado === 'en_tramite') {
-    sql += ` AND (t.estado IN ('Pendiente Laboratorio', 'Pendiente Medicina'))`;
+    sql += ` AND t.estado IN ('Pendiente Laboratorio', 'Pendiente Medicina')`;
   }
-
-  sql += ` ORDER BY p.created_at DESC LIMIT 150`;
+  sql += ' ORDER BY p.fecha_registro DESC LIMIT 150';
 
   try {
     const result = await db.query(sql, params);
@@ -87,21 +103,34 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/pacientes/aprobados (Listado de carnets aprobados para emisión)
-// IMPORTANTE: Esta ruta DEBE estar ANTES de /:id para que Express no interprete "aprobados" como un ID
-router.get('/aprobados', verifyToken, async (req, res) => {
+// GET /api/pacientes/aprobados
+router.get('/aprobados', verifyToken, async (_req, res) => {
   try {
     const result = await db.query(`
-      SELECT t.id as tramite_id, t.tipo_tramite, t.codigo_carnet, t.numero_carnet_fisico, t.fecha_emision, t.fecha_vencimiento,
-             p.id as paciente_id, p.ci, p.ci_exp, p.nombres, p.apellidos, p.foto_url, p.ocupacion, p.empresa_trabajo, p.mercado,
-             l.quimica_sanguinea,
+      SELECT t.id AS tramite_id, t.tipo_tramite, t.codigo_carnet,
+             t.numero_carnet_sanitario AS numero_carnet_fisico,
+             t.fecha_emision, t.fecha_vencimiento, p.id AS paciente_id,
+             ${ciCompletoSql('p')} AS ci, p.ci_expedido AS ci_exp,
+             p.nombres, p.apellidos, p.foto_url, p.ocupacion, p.empresa_trabajo, p.mercado,
+             COALESCE(l.datos_compatibilidad->'quimica_sanguinea', jsonb_build_object(
+               'glucosa', q.glucosa, 'urea', q.urea, 'creatinina', q.creatinina,
+               'grupo_sanguineo', q.grupo_sanguineo, 'factor_rh', q.factor_rh
+             )) AS quimica_sanguinea,
              c.firma_medico
       FROM tramites t
-      JOIN pacientes p ON t.paciente_id = p.id
-      LEFT JOIN laboratorios l ON l.tramite_id = t.id
-      LEFT JOIN consultas_medicas c ON c.tramite_id = t.id
+      JOIN pacientes p ON p.id = t.paciente_id
+      LEFT JOIN LATERAL (
+        SELECT * FROM laboratorios WHERE tramite_id = t.numero_carnet_sanitario
+        ORDER BY fecha_registro DESC, id DESC LIMIT 1
+      ) l ON true
+      LEFT JOIN quimica_sanguinea q ON q.id_sanguinea = l.quimica_sanguinea_id
+      LEFT JOIN LATERAL (
+        SELECT firma_medico FROM consultas_medicas
+        WHERE tramite_id = t.numero_carnet_sanitario
+        ORDER BY fecha_consulta DESC, id DESC LIMIT 1
+      ) c ON true
       WHERE t.estado = 'Aprobado'
-      ORDER BY t.fecha_emision DESC
+      ORDER BY t.fecha_emision DESC NULLS LAST, t.id DESC
     `);
     res.json(result.rows);
   } catch (error) {
@@ -110,215 +139,194 @@ router.get('/aprobados', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/pacientes/:id (Detalle completo del paciente e historial de trámites)
+// GET /api/pacientes/:id
 router.get('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
-
   try {
-    // 1. Obtener datos del paciente
-    const patientRes = await db.query('SELECT * FROM pacientes WHERE id = $1', [id]);
-    if (patientRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Paciente no encontrado.' });
-    }
-    const paciente = patientRes.rows[0];
-
-    // 2. Obtener historial de trámites con sus resultados asociados
-    const tramitesRes = await db.query(`
-      SELECT t.id, t.tipo_tramite, t.codigo_carnet, t.numero_carnet_fisico, t.estado, t.costo_bs, t.fecha_inicio, t.fecha_emision, t.fecha_vencimiento,
-             l.id as lab_id, l.quimica_sanguinea, l.coproparasitologico, l.vih, l.fecha_registro as lab_fecha,
-             COALESCE(
-               json_agg(
-                 json_build_object(
-                   'analisis', loa.analisis,
-                   'resultado', loa.resultado
-                 )
-               ) FILTER (WHERE loa.analisis IS NOT NULL),
-               '[]'::json
-             ) as otros_analisis,
-             c.id as consulta_id, c.examen_fisico, c.antecedentes_patologicos, c.diagnostico, c.aprobado, c.firma_medico, c.fecha_consulta
-      FROM tramites t
-      LEFT JOIN laboratorios l ON l.tramite_id = t.id
-      LEFT JOIN laboratorio_otros_analisis loa ON loa.laboratorio_id = l.id
-      LEFT JOIN consultas_medicas c ON c.tramite_id = t.id
-      WHERE t.paciente_id = $1
-      GROUP BY t.id, l.id, c.id
-      ORDER BY t.created_at DESC
+    const patientRes = await db.query(`
+      SELECT p.*, ${ciCompletoSql('p')} AS ci, p.ci_expedido AS ci_exp,
+             p.fecha_registro AS created_at
+      FROM pacientes p WHERE p.id = $1
     `, [id]);
+    if (patientRes.rows.length === 0) return res.status(404).json({ error: 'Paciente no encontrado.' });
 
-    res.json({
-      paciente,
-      historial: tramitesRes.rows
-    });
-
+    const tramitesRes = await db.query(`
+      SELECT t.id, t.numero_carnet_sanitario AS numero_carnet_fisico,
+             t.tipo_tramite, t.codigo_carnet, t.estado, t.costo_bs,
+             t.fecha_inicio, t.fecha_emision, t.fecha_vencimiento,
+             l.id AS lab_id,
+             COALESCE(l.datos_compatibilidad->'quimica_sanguinea', jsonb_build_object(
+               'glucosa', q.glucosa, 'urea', q.urea, 'creatinina', q.creatinina,
+               'grupo_sanguineo', q.grupo_sanguineo, 'factor_rh', q.factor_rh
+             )) AS quimica_sanguinea,
+             COALESCE(l.datos_compatibilidad->'coproparasitologico', jsonb_build_object(
+               'aspecto', cp.aspecto, 'moco', cp.moco, 'sangre_macroscopica', cp.sangre_macroscopica,
+               'examen_microscopico', cp.examen_microscopico_directo, 'parasito', cp.examen_microscopico_directo
+             )) AS coproparasitologico,
+             COALESCE(l.datos_compatibilidad->'vih', jsonb_build_object(
+               'realizado', l.vih_realizado, 'resultado', l.vih_resultado,
+               'consentimiento', l.vih_consentimiento,
+               'mostrar_en_registro_medico', l.vih_mostrar_en_registro_medico
+             )) AS vih,
+             l.observaciones AS lab_observaciones, l.fecha_registro AS lab_fecha,
+             COALESCE(oa.otros_analisis, '[]'::jsonb) AS otros_analisis,
+             c.id AS consulta_id, c.antecedentes_patologicos, c.diagnostico,
+             c.aprobado, c.firma_medico, c.fecha_consulta,
+             CASE WHEN e.id_examen IS NULL THEN NULL ELSE jsonb_build_object(
+               'evaluacion_dermica', e.evaluacion_dermica,
+               'evaluacion_respiratoria', e.evaluacion_respiratoria,
+               'evaluacion_cardiovascular', e.evaluacion_cardiovascular,
+               'evaluacion_gastrointestinal', e.evaluacion_gastrointestinal,
+               'peso', e.peso, 'altura', e.altura, 'presion', e.presion,
+               'temperatura', e.temperatura, 'pulso', e.pulso
+             ) END AS revision_general
+      FROM tramites t
+      LEFT JOIN LATERAL (
+        SELECT * FROM laboratorios WHERE tramite_id = t.numero_carnet_sanitario
+        ORDER BY fecha_registro DESC, id DESC LIMIT 1
+      ) l ON true
+      LEFT JOIN quimica_sanguinea q ON q.id_sanguinea = l.quimica_sanguinea_id
+      LEFT JOIN coproparasitologico cp ON cp.id_coproparasitologico = l.coproparasitologico_id
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(jsonb_build_object('analisis', analisis, 'resultado', resultado) ORDER BY id) AS otros_analisis
+        FROM laboratorio_otros_analisis WHERE laboratorio_id = l.id
+      ) oa ON true
+      LEFT JOIN consultas_medicas c ON c.tramite_id = t.numero_carnet_sanitario
+      LEFT JOIN examen_revision_general e ON e.id_examen = c.examen_revision_general_id
+      WHERE t.paciente_id = $1
+      ORDER BY t.fecha_registro DESC, c.fecha_consulta DESC NULLS LAST, t.id DESC
+    `, [id]);
+    res.json({ paciente: patientRes.rows[0], historial: tramitesRes.rows });
   } catch (error) {
     console.error('Error al obtener detalle del paciente:', error);
     res.status(500).json({ error: 'Error al obtener el historial médico.' });
   }
 });
 
-// POST /api/pacientes (Registrar nuevo paciente e iniciar trámite)
+// POST /api/pacientes
 router.post('/', verifyToken, checkRole(['admin']), async (req, res) => {
   const {
-    ci, ci_exp, nombres, apellidos, fecha_nacimiento, genero, telefono,
+    ci, cedula_complemento, ci_exp, nombres, apellidos, fecha_nacimiento, genero, telefono,
     ocupacion, empresa_trabajo, mercado, foto_url, tipo_tramite, costo_bs,
-    numero_carnet_fisico
   } = req.body;
+  const { identidad, complemento } = parseCedula(ci, cedula_complemento);
+  const numeroCarnet = normalizeCardNumber(req.body.numero_carnet_sanitario || req.body.numero_carnet_fisico);
 
-  if (!ci || !ci_exp || !nombres || !apellidos || !fecha_nacimiento || !genero || !ocupacion || !tipo_tramite) {
+  if (!identidad || !ci_exp || !nombres || !apellidos || !fecha_nacimiento || !genero || !ocupacion || !tipo_tramite) {
     return res.status(400).json({ error: 'Faltan campos obligatorios para el registro.' });
   }
-
-  // Validar que número de carnet físico no sea negativo (permite letras/complemento como 5791-1A)
-  if (numero_carnet_fisico !== undefined && numero_carnet_fisico !== null && String(numero_carnet_fisico).trim() !== '') {
-    const trimmedCarnet = String(numero_carnet_fisico).trim();
-    if (trimmedCarnet.startsWith('-') || /^-\d+$/.test(trimmedCarnet)) {
-      return res.status(400).json({ error: 'El número de carnet físico no puede ser un número negativo.' });
-    }
-  }
-
-  // Validar costo_bs no negativo
-  if (costo_bs !== undefined && costo_bs !== null && parseFloat(costo_bs) < 0) {
-    return res.status(400).json({ error: 'El costo del trámite no puede ser un número negativo.' });
+  const cardError = validateCardNumber(numeroCarnet);
+  if (cardError) return res.status(400).json({ error: cardError });
+  if (complemento && complemento.length > 5) return res.status(400).json({ error: 'El complemento de la cédula admite hasta 5 caracteres.' });
+  if (costo_bs !== undefined && costo_bs !== null && (!Number.isFinite(Number(costo_bs)) || Number(costo_bs) < 0)) {
+    return res.status(400).json({ error: 'El costo del trámite debe ser un número válido no negativo.' });
   }
 
   const client = await db.pool.connect();
-
   try {
     await client.query('BEGIN');
-
-    // 1. Verificar si el paciente ya existe por CI
-    let pacienteId;
-    const existingPatient = await client.query('SELECT id, nombres, apellidos FROM pacientes WHERE ci = $1', [ci.trim()]);
-
+    const existingPatient = await client.query(`
+      SELECT id, nombres, apellidos FROM pacientes
+      WHERE cedula_identidad = $1 AND cedula_complemento IS NOT DISTINCT FROM $2
+    `, [identidad, complemento]);
     if (existingPatient.rows.length > 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ 
-        error: `El paciente con C.I. ${ci.trim()} (${existingPatient.rows[0].nombres} ${existingPatient.rows[0].apellidos}) ya se encuentra registrado. La renovación de carnet se realiza exclusivamente desde el módulo "Búsqueda de Pacientes".`,
+      return res.status(400).json({
+        error: `El paciente con C.I. ${ci.trim()} ya se encuentra registrado. La renovación se realiza desde "Búsqueda de Pacientes".`,
         pacienteExistente: true,
-        pacienteId: existingPatient.rows[0].id
+        pacienteId: existingPatient.rows[0].id,
       });
     }
 
-    // Crear nuevo paciente (Apertura)
-    const newPatient = await client.query(`
-      INSERT INTO pacientes (ci, ci_exp, nombres, apellidos, fecha_nacimiento, genero, telefono, ocupacion, empresa_trabajo, mercado, foto_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id
-    `, [ci.trim(), ci_exp, nombres, apellidos, fecha_nacimiento, genero, telefono, ocupacion, empresa_trabajo, mercado, foto_url]);
-    pacienteId = newPatient.rows[0].id;
+    const patient = await client.query(`
+      INSERT INTO pacientes (
+        cedula_identidad, cedula_complemento, ci_expedido, nombres, apellidos,
+        fecha_nacimiento, genero, telefono, ocupacion, empresa_trabajo, mercado, foto_url
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id
+    `, [
+      identidad, complemento, ci_exp.trim().toUpperCase(), nombres.trim(), apellidos.trim(),
+      fecha_nacimiento, genero, telefono || null, ocupacion.trim(), empresa_trabajo || null,
+      mercado || null, foto_url || null,
+    ]);
+    const pacienteId = patient.rows[0].id;
 
-    // 2. Verificar si ya existe un trámite activo o pendiente para este paciente
-    const activeTramite = await client.query(`
-      SELECT id, estado FROM tramites 
-      WHERE paciente_id = $1 AND estado IN ('Pendiente Laboratorio', 'Pendiente Medicina')
+    const active = await client.query(`
+      SELECT id, estado FROM tramites WHERE paciente_id = $1
+      AND estado IN ('Pendiente Laboratorio', 'Pendiente Medicina')
     `, [pacienteId]);
-
-    if (activeTramite.rows.length > 0) {
+    if (active.rows.length > 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `El paciente ya tiene un trámite activo en estado: ${activeTramite.rows[0].estado}` });
+      return res.status(400).json({ error: `El paciente ya tiene un trámite activo en estado: ${active.rows[0].estado}` });
     }
 
-    // 3. Crear el trámite (estado inicial: 'Pendiente Laboratorio')
-    const cost = costo_bs || 30.00;
+    const cost = costo_bs === undefined || costo_bs === null || costo_bs === '' ? 30 : Number(costo_bs);
     const tramiteRes = await client.query(`
-      INSERT INTO tramites (paciente_id, tipo_tramite, estado, costo_bs, numero_carnet_fisico)
-      VALUES ($1, $2, 'Pendiente Laboratorio', $3, $4)
-      RETURNING id, tipo_tramite, estado, numero_carnet_fisico
-    `, [pacienteId, tipo_tramite, cost, numero_carnet_fisico || null]);
-
-    const newTramite = tramiteRes.rows[0];
-
+      INSERT INTO tramites (numero_carnet_sanitario, paciente_id, tipo_tramite, estado, costo_bs)
+      VALUES ($1, $2, $3, 'Pendiente Laboratorio', $4)
+      RETURNING id, numero_carnet_sanitario AS numero_carnet_fisico, tipo_tramite, estado
+    `, [numeroCarnet, pacienteId, tipo_tramite, cost]);
     await client.query('COMMIT');
 
     await logAuditoria(
-      req.user.id, 
-      'REGISTRO_PACIENTE', 
-      `Registró paciente CI: ${ci} e inició trámite de ${tipo_tramite} (ID Trámite: ${newTramite.id})`, 
+      req.user.id,
+      'REGISTRO_PACIENTE',
+      `Registró paciente CI: ${identidad}${complemento ? `-${complemento}` : ''} e inició trámite de ${tipo_tramite} (N° ${numeroCarnet})`,
       req
     );
-
-    res.status(201).json({
-      message: 'Paciente registrado e inicio de trámite exitoso.',
-      pacienteId,
-      tramite: newTramite
-    });
-
+    res.status(201).json({ message: 'Paciente registrado e inicio de trámite exitoso.', pacienteId, tramite: tramiteRes.rows[0] });
   } catch (error) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch {}
     console.error('Error al registrar paciente:', error);
-    if (error.code === '23505') {
-      return res.status(400).json({ error: 'Ya existe un registro con esos datos (C.I. o código ya existente).' });
-    }
-    if (error.code === '22001') {
-      return res.status(400).json({ error: 'Uno o más datos ingresados superan el límite de caracteres permitido.' });
-    }
+    if (error.code === '23505') return res.status(400).json({ error: 'Ya existe un registro con esos datos (cédula o número de carnet sanitario).' });
+    if (error.code === '22001') return res.status(400).json({ error: 'Uno o más datos superan el límite de caracteres permitido.' });
     res.status(500).json({ error: error.message || 'Error al registrar el paciente en el sistema.' });
   } finally {
     client.release();
   }
 });
 
-// POST /api/pacientes/:id/tramite (Iniciar trámite de renovación para paciente existente)
+// POST /api/pacientes/:id/tramite
 router.post('/:id/tramite', verifyToken, checkRole(['admin']), async (req, res) => {
   const { id } = req.params;
-  const { tipo_tramite, costo_bs, numero_carnet_fisico } = req.body;
-
-  const tipoTramiteFinal = tipo_tramite || 'Renovación';
-
-  // Validar número de carnet físico si se proporciona
-  if (numero_carnet_fisico !== undefined && numero_carnet_fisico !== null && String(numero_carnet_fisico).trim() !== '') {
-    const trimmedCarnet = String(numero_carnet_fisico).trim();
-    if (trimmedCarnet.startsWith('-') || /^-\d+$/.test(trimmedCarnet)) {
-      return res.status(400).json({ error: 'El número de carnet físico no puede ser un número negativo.' });
-    }
+  const tipoTramite = req.body.tipo_tramite || 'Renovación';
+  const numeroCarnet = normalizeCardNumber(req.body.numero_carnet_sanitario || req.body.numero_carnet_fisico);
+  const { costo_bs } = req.body;
+  const cardError = validateCardNumber(numeroCarnet);
+  if (cardError) return res.status(400).json({ error: cardError });
+  if (costo_bs !== undefined && costo_bs !== null && costo_bs !== ''
+      && (!Number.isFinite(Number(costo_bs)) || Number(costo_bs) < 0)) {
+    return res.status(400).json({ error: 'El costo del trámite debe ser un número válido no negativo.' });
   }
-
-  // Validar costo_bs no negativo
-  if (costo_bs !== undefined && costo_bs !== null && parseFloat(costo_bs) < 0) {
-    return res.status(400).json({ error: 'El costo del trámite no puede ser un número negativo.' });
-  }
-
   try {
-    // 1. Verificar si existe el paciente
-    const patientExists = await db.query('SELECT ci, nombres, apellidos FROM pacientes WHERE id = $1', [id]);
-    if (patientExists.rows.length === 0) {
-      return res.status(404).json({ error: 'Paciente no encontrado.' });
-    }
-    const { ci, nombres, apellidos } = patientExists.rows[0];
-
-    // 2. Verificar trámites activos pendientes
-    const activeTramite = await db.query(`
-      SELECT id, estado FROM tramites 
-      WHERE paciente_id = $1 AND estado IN ('Pendiente Laboratorio', 'Pendiente Medicina')
+    const patientRes = await db.query(`
+      SELECT ${ciCompletoSql('p')} AS ci, p.nombres, p.apellidos FROM pacientes p WHERE p.id = $1
     `, [id]);
-
-    if (activeTramite.rows.length > 0) {
-      return res.status(400).json({ 
-        error: `El paciente ya tiene un trámite activo en estado: "${activeTramite.rows[0].estado}". Debe completarse antes de iniciar una nueva renovación.` 
-      });
+    if (patientRes.rows.length === 0) return res.status(404).json({ error: 'Paciente no encontrado.' });
+    const patient = patientRes.rows[0];
+    const active = await db.query(`
+      SELECT id, estado FROM tramites WHERE paciente_id = $1
+      AND estado IN ('Pendiente Laboratorio', 'Pendiente Medicina')
+    `, [id]);
+    if (active.rows.length > 0) {
+      return res.status(400).json({ error: `El paciente ya tiene un trámite activo en estado: "${active.rows[0].estado}". Debe completarse antes de iniciar una nueva renovación.` });
     }
-
-    // 3. Crear trámite de renovación
-    const cost = costo_bs !== undefined && costo_bs !== null && costo_bs !== '' ? parseFloat(costo_bs) : 30.00;
-    const numCarnet = numero_carnet_fisico ? String(numero_carnet_fisico).trim().toUpperCase() : null;
-
+    const cost = costo_bs === undefined || costo_bs === null || costo_bs === '' ? 30 : Number(costo_bs);
     const result = await db.query(`
-      INSERT INTO tramites (paciente_id, tipo_tramite, estado, costo_bs, numero_carnet_fisico)
-      VALUES ($1, $2, 'Pendiente Laboratorio', $3, $4)
-      RETURNING id, tipo_tramite, estado, costo_bs, numero_carnet_fisico
-    `, [id, tipoTramiteFinal, cost, numCarnet]);
-
+      INSERT INTO tramites (numero_carnet_sanitario, paciente_id, tipo_tramite, estado, costo_bs)
+      VALUES ($1, $2, $3, 'Pendiente Laboratorio', $4)
+      RETURNING id, numero_carnet_sanitario AS numero_carnet_fisico, tipo_tramite, estado, costo_bs
+    `, [numeroCarnet, id, tipoTramite, cost]);
     await logAuditoria(
-      req.user.id, 
-      'RENOVACION_CARNET', 
-      `Inició trámite de ${tipoTramiteFinal} para paciente ${nombres} ${apellidos} (CI: ${ci}, ID: ${id}, Kardex: ${numCarnet || 'N/A'})`, 
+      req.user.id,
+      'RENOVACION_CARNET',
+      `Inició trámite de ${tipoTramite} para paciente ${patient.nombres} ${patient.apellidos} (CI: ${patient.ci}, ID: ${id}, N°: ${numeroCarnet})`,
       req
     );
-
     res.status(201).json(result.rows[0]);
-
   } catch (error) {
     console.error('Error al iniciar renovación de trámite:', error);
+    if (error.code === '23505') return res.status(400).json({ error: 'El número de carnet sanitario ya está registrado.' });
+    if (error.code === '22001') return res.status(400).json({ error: 'Uno o más datos superan el límite de caracteres permitido.' });
     res.status(500).json({ error: error.message || 'Error al iniciar el trámite de renovación.' });
   }
 });

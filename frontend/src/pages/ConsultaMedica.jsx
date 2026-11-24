@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import CarnetTemplate from '../components/CarnetTemplate';
+import { PatientPhotoPrintControls } from '../components/PatientPhotoPrint';
 import AdvancedQueueFilters from '../components/AdvancedQueueFilters';
 import useLiveRefresh from '../hooks/useLiveRefresh';
 import { filterPendingTramites } from '../utils/queueSearch';
+import { printDocument, printPhotoSheet } from '../utils/printDocument';
 import {
   Stethoscope,
   PlusCircle, 
@@ -21,27 +23,31 @@ import {
   Search
 } from 'lucide-react';
 
+const emptyRevision = () => ({
+  evaluacion_dermica: '',
+  evaluacion_respiratoria: '',
+  evaluacion_cardiovascular: '',
+  evaluacion_gastrointestinal: '',
+  peso: '',
+  altura: '',
+  presion: '',
+  temperatura: '',
+  pulso: '',
+});
+
 export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }) {
   const [pendientes, setPendientes] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
   const [filters, setFilters] = useState({ query: '', tipo: '', ocupacion: '', mercado: '', desde: '', hasta: '' });
 
-  // Campos de la consulta (Examen Físico)
-  const [piel, setPiel] = useState('Sana');
-  const [pielOtro, setPielOtro] = useState('');
-  const [respiratorio, setRespiratorio] = useState('Normal');
-  const [respiratorioOtro, setRespiratorioOtro] = useState('');
-  const [cardiovascular, setCardiovascular] = useState('Normal');
-  const [cardiovascularOtro, setCardiovascularOtro] = useState('');
-  const [dental, setDental] = useState('Sano');
-  const [dentalOtro, setDentalOtro] = useState('');
-  const [otrosExamenFisico, setOtrosExamenFisico] = useState('');
+  const [revision, setRevision] = useState(emptyRevision);
 
   const [antecedentes, setAntecedentes] = useState('');
   const [diagnostico, setDiagnostico] = useState('Apto para la manipulación de alimentos.');
   const [aprobado, setAprobado] = useState(true);
   const [nombreMedico, setNombreMedico] = useState('');
   const [printSize, setPrintSize] = useState('standard');
+  const [photoCopies, setPhotoCopies] = useState(1);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -62,6 +68,8 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
   };
 
   const handleSelectTramite = (tramite) => {
+    setRevision(emptyRevision());
+    setAntecedentes('');
     setSharedData(tramite);
     if (onNavigate) {
       onNavigate('medicina-formulario');
@@ -108,25 +116,19 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
 
     if (!sharedData) return;
 
-    if (!nombreMedico.trim()) {
-      setError('Por favor ingrese el nombre del médico evaluador.');
-      return;
-    }
-
     setSubmitting(true);
 
-    const finalPiel = piel === 'Otro' ? (pielOtro.trim() || 'Otro') : piel;
-    const finalRespiratorio = respiratorio === 'Otro' ? (respiratorioOtro.trim() || 'Otro') : respiratorio;
-    const finalCardiovascular = cardiovascular === 'Otro' ? (cardiovascularOtro.trim() || 'Otro') : cardiovascular;
-    const finalDental = dental === 'Otro' ? (dentalOtro.trim() || 'Otro') : dental;
-
     const payload = {
-      examen_fisico: {
-        piel: finalPiel,
-        respiratorio: finalRespiratorio,
-        cardiovascular: finalCardiovascular,
-        dental: finalDental,
-        otros: otrosExamenFisico.trim() || null
+      revision_general: {
+        evaluacion_dermica: revision.evaluacion_dermica.trim() || null,
+        evaluacion_respiratoria: revision.evaluacion_respiratoria.trim() || null,
+        evaluacion_cardiovascular: revision.evaluacion_cardiovascular.trim() || null,
+        evaluacion_gastrointestinal: revision.evaluacion_gastrointestinal.trim() || null,
+        peso: revision.peso === '' ? null : Number(revision.peso),
+        altura: revision.altura === '' ? null : Number(revision.altura),
+        presion: revision.presion.trim() || null,
+        temperatura: revision.temperatura === '' ? null : Number(revision.temperatura),
+        pulso: revision.pulso === '' ? null : Number(revision.pulso)
       },
       antecedentes_patologicos: antecedentes,
       diagnostico,
@@ -155,10 +157,7 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
     }
   };
 
-  const handlePrint = () => {
-    window.dispatchEvent(new Event('carnet_settings_changed'));
-    window.print();
-  };
+  const handlePrint = () => printDocument();
 
   const handleVolverBandeja = () => {
     setSharedData(null);
@@ -503,6 +502,12 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
                   Proceder a Imprimir Carnet
                 </button>
               </div>
+              <PatientPhotoPrintControls
+                photoUrl={sharedData.foto_url}
+                copies={photoCopies}
+                onCopiesChange={setPhotoCopies}
+                onPrint={() => printPhotoSheet(sharedData.foto_url, photoCopies)}
+              />
             </div>
           )}
         </div>
@@ -533,7 +538,6 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
           />
         </div>
       )}
-
       {/* FORMULARIO CLÍNICO PRINCIPAL (OCULTO TRAS LA EMISIÓN) */}
       {!emitResult && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -783,128 +787,61 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs lg:col-span-2 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* Examen Físico */}
+              {/* Revisión General */}
               <div>
                 <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-4">
                   <Heart size={16} className="text-emerald-600" />
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Examen Físico Clínico</h3>
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Revisión General</h3>
                 </div>
-                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  {/* 1. Evaluación Dérmica (Piel) */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-500">Evaluación Dérmica (Piel) *</label>
-                    <select
-                      value={piel}
-                      onChange={(e) => setPiel(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 bg-white"
-                    >
-                      <option value="Sana">Sana (Sin lesiones)</option>
-                      <option value="Lesiones Micóticas">Lesiones Micóticas</option>
-                      <option value="Dermatitis Activa">Dermatitis Activa</option>
-                      <option value="Heridas Abiertas">Heridas Abiertas</option>
-                      <option value="Otro">Otro (Escribir personalizado...)</option>
-                    </select>
-                    {piel === 'Otro' && (
-                      <input
-                        type="text"
-                        placeholder="Escriba el diagnóstico de la piel..."
-                        value={pielOtro}
-                        onChange={(e) => setPielOtro(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-blue-400 bg-blue-50/40 rounded-lg text-xs outline-none focus:border-blue-600 font-medium text-slate-800"
-                        autoFocus
+                  {[
+                    ['evaluacion_dermica', 'Evaluación dérmica'],
+                    ['evaluacion_respiratoria', 'Evaluación respiratoria'],
+                    ['evaluacion_cardiovascular', 'Evaluación cardiovascular'],
+                    ['evaluacion_gastrointestinal', 'Evaluación gastrointestinal'],
+                  ].map(([field, label]) => (
+                    <label key={field} className="block space-y-1.5">
+                      <span className="block text-xs font-semibold text-slate-500">{label}</span>
+                      <textarea
+                        value={revision[field]}
+                        onChange={(e) => setRevision((current) => ({ ...current, [field]: e.target.value }))}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 bg-white resize-y"
                       />
-                    )}
-                  </div>
-
-                  {/* 2. Sintomatología Respiratoria */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-500">Sintomatología Respiratoria *</label>
-                    <select
-                      value={respiratorio}
-                      onChange={(e) => setRespiratorio(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 bg-white"
-                    >
-                      <option value="Normal">Normal (Sin sintomatología)</option>
-                      <option value="Tos Crónica">Tos Crónica (Sospecha TBC)</option>
-                      <option value="Faringoamigdalitis">Faringoamigdalitis Aguda</option>
-                      <option value="Otro">Otro (Escribir personalizado...)</option>
-                    </select>
-                    {respiratorio === 'Otro' && (
-                      <input
-                        type="text"
-                        placeholder="Escriba sintomatología respiratoria..."
-                        value={respiratorioOtro}
-                        onChange={(e) => setRespiratorioOtro(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-blue-400 bg-blue-50/40 rounded-lg text-xs outline-none focus:border-blue-600 font-medium text-slate-800"
-                        autoFocus
-                      />
-                    )}
-                  </div>
-
-                  {/* 3. Sistema Cardiovascular */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-500">Sistema Cardiovascular *</label>
-                    <select
-                      value={cardiovascular}
-                      onChange={(e) => setCardiovascular(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 bg-white"
-                    >
-                      <option value="Normal">Normal</option>
-                      <option value="Arritmia">Arritmia leve</option>
-                      <option value="Hipertensión No Controlada">Hipertensión No Controlada</option>
-                      <option value="Otro">Otro (Escribir personalizado...)</option>
-                    </select>
-                    {cardiovascular === 'Otro' && (
-                      <input
-                        type="text"
-                        placeholder="Escriba evaluación cardiovascular..."
-                        value={cardiovascularOtro}
-                        onChange={(e) => setCardiovascularOtro(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-blue-400 bg-blue-50/40 rounded-lg text-xs outline-none focus:border-blue-600 font-medium text-slate-800"
-                        autoFocus
-                      />
-                    )}
-                  </div>
-
-                  {/* 4. Cavidad Bucal (Dental) */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-500">Cavidad Bucal (Dental) *</label>
-                    <select
-                      value={dental}
-                      onChange={(e) => setDental(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 bg-white"
-                    >
-                      <option value="Sano">Sano / Tratado</option>
-                      <option value="Caries Leve">Caries Leve</option>
-                      <option value="Caries Profunda / Foco Infeccioso">Caries Profunda (Foco Infeccioso)</option>
-                      <option value="Otro">Otro (Escribir personalizado...)</option>
-                    </select>
-                    {dental === 'Otro' && (
-                      <input
-                        type="text"
-                        placeholder="Escriba evaluación dental / bucal..."
-                        value={dentalOtro}
-                        onChange={(e) => setDentalOtro(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-blue-400 bg-blue-50/40 rounded-lg text-xs outline-none focus:border-blue-600 font-medium text-slate-800"
-                        autoFocus
-                      />
-                    )}
-                  </div>
+                    </label>
+                  ))}
                 </div>
-
-                {/* 5. Campo Adicional: Otros Hallazgos del Examen Físico */}
-                <div className="mt-4 pt-3 border-t border-slate-100">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    Otros Hallazgos / Examen Físico Adicional (Opcional)
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-500">Peso (kg)</span>
+                    <input type="number" min="0" max="999.99" step="0.01" value={revision.peso}
+                      onChange={(e) => setRevision((current) => ({ ...current, peso: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500" />
                   </label>
-                  <input
-                    type="text"
-                    value={otrosExamenFisico}
-                    onChange={(e) => setOtrosExamenFisico(e.target.value)}
-                    placeholder="Escriba aquí otros hallazgos clínicos relevantes (ej. Ganglios, visión, extremidades, etc.)..."
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 bg-white placeholder:text-slate-400"
-                  />
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-500">Altura (m)</span>
+                    <input type="number" min="0" max="99.99" step="0.01" value={revision.altura}
+                      onChange={(e) => setRevision((current) => ({ ...current, altura: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500" />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-500">Presión</span>
+                    <input type="text" maxLength="10" placeholder="120/80" value={revision.presion}
+                      onChange={(e) => setRevision((current) => ({ ...current, presion: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500" />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-500">Temperatura (°C)</span>
+                    <input type="number" min="0" max="999.9" step="0.1" value={revision.temperatura}
+                      onChange={(e) => setRevision((current) => ({ ...current, temperatura: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500" />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-500">Pulso (lpm)</span>
+                    <input type="number" min="0" step="1" value={revision.pulso}
+                      onChange={(e) => setRevision((current) => ({ ...current, pulso: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500" />
+                  </label>
                 </div>
               </div>
 
@@ -936,16 +873,16 @@ export default function ConsultaMedica({ sharedData, setSharedData, onNavigate }
               {/* Nombre del Médico Evaluador */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700">
-                  👨‍⚕️ Nombre del Médico Evaluador *
+                  👨‍⚕️ Nombre del Médico Evaluador
                 </label>
                 <input
                   type="text"
                   value={nombreMedico}
                   onChange={(e) => setNombreMedico(e.target.value)}
                   placeholder="Ej. Dr. Carlos Mendoza Roca"
-                  required
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 bg-white placeholder:font-normal placeholder:text-slate-400"
                 />
+                <p className="text-[10px] text-slate-500">Si lo dejas vacío, se guardará el nombre de la cuenta médica conectada.</p>
               </div>
 
               {/* Decisión de aprobación */}

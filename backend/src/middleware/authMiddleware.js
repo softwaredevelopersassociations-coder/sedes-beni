@@ -20,7 +20,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const result = await db.query(
-      'SELECT id, username, nombre_completo, rol, activo FROM usuarios WHERE id = $1',
+      'SELECT id, nombre_usuario AS username, nombre_completo, rol, activo FROM usuarios WHERE id = $1',
       [verified.id]
     );
     const account = result.rows[0];

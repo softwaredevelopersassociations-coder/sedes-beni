@@ -207,12 +207,12 @@ html.dark ::-webkit-scrollbar-thumb {
   }
 
   .print-area .modo-oficial .puntos-guia-form {
-    border-bottom: 1.2px dotted #333 !important;
+    border-bottom: 1px dotted #111 !important;
     visibility: visible !important;
   }
 
   .print-area .modo-oficial .foto-box-real {
-    border: 1.5px solid #111 !important;
+    border: 2.5px solid #111 !important;
     visibility: visible !important;
   }
 
@@ -224,7 +224,7 @@ html.dark ::-webkit-scrollbar-thumb {
 
   .print-area .modo-oficial .linea-puntos-unidad {
     display: block !important;
-    border-bottom: 1.2px dotted #333 !important;
+    border-bottom: 1px dotted #111 !important;
     visibility: visible !important;
   }
 

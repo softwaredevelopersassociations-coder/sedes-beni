@@ -6,135 +6,106 @@ require('dotenv').config();
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
+  port: parseInt(process.env.DB_PORT || '5432', 10),
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'cristhiane',
   database: process.env.DB_NAME || 'sedes_beni',
 });
 
-// Tablas de la versión anterior. Esa versión usa columnas incompatibles con
-// schema.sql. Solo se reconstruyen automáticamente cuando están vacías.
-const legacyDataTables = [
-  'pacientes',
-  'tramites',
-  'laboratorios',
-  'laboratorio_otros_analisis',
-  'consultas_medicas',
-  'logs_auditoria',
-  'quimica_sanguinea',
-  'coproparasitologico',
-  'examen_revision_general',
-];
+async function tableExists(client, tableName) {
+  const result = await client.query("SELECT to_regclass($1) IS NOT NULL AS present", [`public.${tableName}`]);
+  return result.rows[0].present;
+}
 
-async function migrateEmptyLegacySchema() {
-  const columnsResult = await pool.query(`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'usuarios'
-  `);
-  const columns = new Set(columnsResult.rows.map((row) => row.column_name));
+async function tableColumns(client, tableName) {
+  const result = await client.query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = $1
+  `, [tableName]);
+  return new Set(result.rows.map((row) => row.column_name));
+}
 
-  if (columns.has('username') && columns.has('password')) return false;
-  if (!columns.has('nombre_usuario') || !columns.has('password_hash')) return false;
-
+async function applyDatabaseSchema() {
+  const schemaPath = path.join(__dirname, '../../database/schema.sql');
+  const migrationPath = path.join(__dirname, '../../database/migrations/001_align_target_schema.sql');
+  const legacyExamMigrationPath = path.join(__dirname, '../../database/migrations/002_allow_null_legacy_exam.sql');
+  const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+  const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+  const legacyExamMigrationSql = fs.readFileSync(legacyExamMigrationPath, 'utf8');
   const client = await pool.connect();
+
   try {
+    await client.query('CREATE TABLE IF NOT EXISTS public.schema_migrations (version VARCHAR(100) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)');
     await client.query('BEGIN');
 
-    const existingTables = [];
-    for (const table of legacyDataTables) {
-      const result = await client.query('SELECT to_regclass($1) IS NOT NULL AS present', [`public.${table}`]);
-      if (result.rows[0].present) existingTables.push(table);
+    const hasUsers = await tableExists(client, 'usuarios');
+    if (!hasUsers) {
+      await client.query(schemaSql);
+    } else {
+      const userColumns = await tableColumns(client, 'usuarios');
+      const tramiteColumns = await tableColumns(client, 'tramites');
+      const hasTargetMedical = await tableExists(client, 'examen_revision_general');
+      const isLegacy = userColumns.has('username') && userColumns.has('password')
+        && tramiteColumns.has('numero_carnet_fisico') && !tramiteColumns.has('numero_carnet_sanitario');
+      const isTarget = userColumns.has('nombre_usuario') && userColumns.has('password_hash')
+        && tramiteColumns.has('numero_carnet_sanitario') && hasTargetMedical;
+
+      if (isLegacy) {
+        const applied = await client.query('SELECT 1 FROM public.schema_migrations WHERE version = $1', ['001_align_target_schema']);
+        if (applied.rows.length === 0) {
+          await client.query(migrationSql);
+          await client.query(schemaSql);
+          await client.query('INSERT INTO public.schema_migrations(version) VALUES ($1)', ['001_align_target_schema']);
+          console.log('Migración 001 aplicada: esquema y datos anteriores alineados.');
+        } else {
+          throw new Error('La migración 001 figura aplicada, pero se detectó nuevamente el esquema antiguo. Se detuvo el arranque sin modificar datos.');
+        }
+      } else if (isTarget) {
+        await client.query(schemaSql);
+      } else {
+        throw new Error('El esquema de la base no coincide con el legado conocido ni con el esquema objetivo; se detuvo el arranque para evitar una modificación insegura.');
+      }
     }
 
-    // Evita perder trámites o expedientes de una instalación antigua.
-    for (const table of existingTables) {
-      await client.query(`LOCK TABLE public."${table}" IN ACCESS EXCLUSIVE MODE`);
+    const legacyExamMigration = await client.query(
+      'SELECT 1 FROM public.schema_migrations WHERE version = $1',
+      ['002_allow_null_legacy_exam']
+    );
+    if (legacyExamMigration.rows.length === 0) {
+      await client.query(legacyExamMigrationSql);
+      await client.query('INSERT INTO public.schema_migrations(version) VALUES ($1)', ['002_allow_null_legacy_exam']);
+      console.log('Migración 002 aplicada: el examen heredado acepta NULL en consultas nuevas.');
     }
 
-    const populatedTables = [];
-    for (const table of existingTables) {
-      const result = await client.query(`SELECT COUNT(*)::int AS count FROM public."${table}"`);
-      if (result.rows[0].count > 0) populatedTables.push(table);
-    }
-
-    if (populatedTables.length > 0) {
-      throw new Error(
-        `La base usa el esquema anterior y contiene datos en ${populatedTables.join(', ')}. ` +
-        'No se modificó ninguna tabla para proteger esos datos.'
-      );
-    }
-
-    // Conserva las cuentas existentes y sus hashes bcrypt.
-    await client.query('ALTER TABLE public.usuarios RENAME COLUMN nombre_usuario TO username');
-    await client.query('ALTER TABLE public.usuarios RENAME COLUMN password_hash TO password');
-    if (columns.has('fecha_registro')) {
-      await client.query('ALTER TABLE public.usuarios RENAME COLUMN fecha_registro TO created_at');
-    }
-
-    // Las demás tablas se comprobaron vacías; se recrearán desde schema.sql.
-    for (const table of existingTables) {
-      await client.query(`DROP TABLE public."${table}" CASCADE`);
+    const userCount = await client.query('SELECT COUNT(*)::int AS count FROM public.usuarios');
+    if (userCount.rows[0].count === 0) {
+      const passwords = await Promise.all(['admin123', 'lab123', 'medico123'].map((value) => bcrypt.hash(value, 10)));
+      await client.query(`
+        INSERT INTO usuarios (nombre_usuario, password_hash, nombre_completo, rol, activo)
+        VALUES
+          ('admin', $1, 'Administrador Central', 'admin', true),
+          ('lab', $2, 'Bioquímica Laboratorio', 'laboratorio', true),
+          ('medico', $3, 'Médico Evaluador', 'medico', true)
+      `, passwords);
+      console.log('Usuarios semilla creados.');
     }
 
     await client.query('COMMIT');
-    console.log('Esquema anterior vacío actualizado; se conservaron los usuarios existentes.');
-    return true;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch {}
     throw error;
   } finally {
     client.release();
   }
 }
 
-// Función para inicializar la base de datos
 async function initDb() {
   try {
     console.log('Intentando conectar con PostgreSQL...');
-    // Verificar conexión básica
     await pool.query('SELECT NOW()');
     console.log('Conexión con PostgreSQL establecida con éxito.');
-
-    await migrateEmptyLegacySchema();
-
-    // Leer y ejecutar schema.sql
-    const schemaPath = path.join(__dirname, '../../database/schema.sql');
-    if (fs.existsSync(schemaPath)) {
-      console.log('Ejecutando script de esquema (schema.sql)...');
-      const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-      await pool.query(schemaSql);
-      console.log('Esquema de base de datos verificado/creado.');
-    } else {
-      console.warn('Advertencia: No se encontró el archivo schema.sql en:', schemaPath);
-    }
-
-    // Verificar si hay usuarios creados. Si no, agregar usuarios semilla.
-    const res = await pool.query('SELECT COUNT(*) FROM usuarios');
-    const userCount = parseInt(res.rows[0].count);
-
-    if (userCount === 0) {
-      console.log('No se encontraron usuarios. Insertando usuarios semilla...');
-      const salt = await bcrypt.genSalt(10);
-      
-      const adminPass = await bcrypt.hash('admin123', salt);
-      const labPass = await bcrypt.hash('lab123', salt);
-      const medicoPass = await bcrypt.hash('medico123', salt);
-
-      await pool.query(`
-        INSERT INTO usuarios (username, password, nombre_completo, rol, activo)
-        VALUES 
-        ($1, $2, 'Administrador Central', 'admin', true),
-        ($3, $4, 'Bioquímica Laboratorio', 'laboratorio', true),
-        ($5, $6, 'Médico Evaluador', 'medico', true)
-      `, ['admin', adminPass, 'lab', labPass, 'medico', medicoPass]);
-
-      console.log('Usuarios semilla creados exitosamente:');
-      console.log(' - Admin: admin / admin123');
-      console.log(' - Laboratorio: lab / lab123');
-      console.log(' - Médico: medico / medico123');
-    }
-
+    await applyDatabaseSchema();
+    console.log('Esquema de base de datos verificado.');
   } catch (error) {
     console.error('Error al inicializar la base de datos:', error.message);
     console.error('Por favor, asegúrate de que PostgreSQL está ejecutándose y de que las credenciales en .env son correctas.');
@@ -145,5 +116,5 @@ async function initDb() {
 module.exports = {
   pool,
   query: (text, params) => pool.query(text, params),
-  initDb
+  initDb,
 };

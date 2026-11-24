@@ -16,7 +16,9 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const result = await db.query('SELECT * FROM usuarios WHERE username = $1', [username.toLowerCase().trim()]);
+    const result = await db.query(`SELECT id, nombre_usuario AS username, password_hash AS password,
+                                          nombre_completo, rol, activo
+                                   FROM usuarios WHERE nombre_usuario = $1`, [username.toLowerCase().trim()]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Credenciales inválidas.' });
     }
@@ -60,7 +62,7 @@ router.post('/login', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', verifyToken, async (req, res) => {
   try {
-    const result = await db.query('SELECT id, username, nombre_completo, rol, activo FROM usuarios WHERE id = $1', [req.user.id]);
+    const result = await db.query('SELECT id, nombre_usuario AS username, nombre_completo, rol, activo FROM usuarios WHERE id = $1', [req.user.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
@@ -74,7 +76,7 @@ router.get('/me', verifyToken, async (req, res) => {
 // GET /api/auth/users (Solo admin)
 router.get('/users', verifyToken, checkRole(['admin']), async (req, res) => {
   try {
-    const result = await db.query('SELECT id, username, nombre_completo, rol, activo, created_at FROM usuarios ORDER BY id ASC');
+    const result = await db.query('SELECT id, nombre_usuario AS username, nombre_completo, rol, activo, fecha_registro AS created_at FROM usuarios ORDER BY id ASC');
     res.json(result.rows);
   } catch (error) {
     console.error('Error al listar usuarios:', error);
@@ -92,7 +94,7 @@ router.post('/users', verifyToken, checkRole(['admin']), async (req, res) => {
 
   try {
     // Validar si ya existe
-    const exists = await db.query('SELECT id FROM usuarios WHERE username = $1', [username.toLowerCase().trim()]);
+    const exists = await db.query('SELECT id FROM usuarios WHERE nombre_usuario = $1', [username.toLowerCase().trim()]);
     if (exists.rows.length > 0) {
       return res.status(400).json({ error: 'El nombre de usuario ya está registrado.' });
     }
@@ -101,8 +103,8 @@ router.post('/users', verifyToken, checkRole(['admin']), async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const result = await db.query(
-      `INSERT INTO usuarios (username, password, nombre_completo, rol, activo)
-       VALUES ($1, $2, $3, $4, true) RETURNING id, username, nombre_completo, rol, activo`,
+      `INSERT INTO usuarios (nombre_usuario, password_hash, nombre_completo, rol, activo)
+       VALUES ($1, $2, $3, $4, true) RETURNING id, nombre_usuario AS username, nombre_completo, rol, activo`,
       [username.toLowerCase().trim(), hashedPassword, nombre_completo, rol]
     );
 
@@ -121,7 +123,7 @@ router.put('/users/:id', verifyToken, checkRole(['admin']), async (req, res) => 
   const { nombre_completo, rol, password } = req.body;
 
   try {
-    const userRes = await db.query('SELECT id, username FROM usuarios WHERE id = $1', [id]);
+    const userRes = await db.query('SELECT id, nombre_usuario AS username FROM usuarios WHERE id = $1', [id]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
@@ -133,7 +135,7 @@ router.put('/users/:id', verifyToken, checkRole(['admin']), async (req, res) => 
     if (password && password.trim() !== '') {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
-      queryText += ', password = $3 WHERE id = $4';
+      queryText += ', password_hash = $3 WHERE id = $4';
       queryParams = [nombre_completo, rol, hashedPassword, id];
     } else {
       queryText += ' WHERE id = $3';
@@ -154,7 +156,7 @@ router.put('/users/:id/toggle', verifyToken, checkRole(['admin']), async (req, r
   const { id } = req.params;
 
   try {
-    const userRes = await db.query('SELECT id, username, activo FROM usuarios WHERE id = $1', [id]);
+    const userRes = await db.query('SELECT id, nombre_usuario AS username, activo FROM usuarios WHERE id = $1', [id]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
@@ -189,7 +191,7 @@ router.delete('/users/:id', verifyToken, checkRole(['admin']), async (req, res) 
 
   try {
     const result = await db.query(
-      'DELETE FROM usuarios WHERE id = $1 RETURNING id, username, nombre_completo, rol',
+      'DELETE FROM usuarios WHERE id = $1 RETURNING id, nombre_usuario AS username, nombre_completo, rol',
       [id]
     );
     if (result.rows.length === 0) {

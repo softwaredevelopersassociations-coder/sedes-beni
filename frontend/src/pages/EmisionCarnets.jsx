@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Printer, AlertCircle, FileCheck2, Settings2, X, Search } from 'lucide-react';
 import CarnetTemplate from '../components/CarnetTemplate';
+import { PatientPhotoPrintControls } from '../components/PatientPhotoPrint';
+import { printDocument, printPhotoSheet } from '../utils/printDocument';
 import useLiveRefresh from '../hooks/useLiveRefresh';
 
 export default function EmisionCarnets() {
@@ -12,6 +14,7 @@ export default function EmisionCarnets() {
   
   const [selectedCarnet, setSelectedCarnet] = useState(null);
   const [printSize, setPrintSize] = useState('standard');
+  const [photoCopies, setPhotoCopies] = useState(1);
 
   const fetchCarnets = async ({ quiet = false } = {}) => {
     if (!quiet) {
@@ -35,10 +38,8 @@ export default function EmisionCarnets() {
 
   useLiveRefresh(() => fetchCarnets({ quiet: true }), true, 12000);
 
-  const handlePrint = () => {
-    window.dispatchEvent(new Event('carnet_settings_changed'));
-    window.print();
-  };
+  const handlePrint = () => printDocument();
+  const handlePhotoPrint = () => printPhotoSheet(selectedCarnet?.foto_url, photoCopies);
 
   const carnetsFiltrados = carnets.filter((c) => {
     if (!busqueda.trim()) return true;
@@ -205,6 +206,12 @@ export default function EmisionCarnets() {
                   <CarnetTemplate carnet={selectedCarnet} size={printSize} />
                 </div>
               </div>
+              <PatientPhotoPrintControls
+                photoUrl={selectedCarnet.foto_url}
+                copies={photoCopies}
+                onCopiesChange={setPhotoCopies}
+                onPrint={handlePhotoPrint}
+              />
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex flex-col-reverse sm:flex-row justify-end gap-2">

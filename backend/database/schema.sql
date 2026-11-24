@@ -1,59 +1,85 @@
--- Base de datos para el Carnet Sanitario del SEDES Beni
+-- Esquema objetivo para el Sistema de Carnet Sanitario SEDES Beni.
+-- Los campos marcados como compatibilidad conservan funciones existentes del sistema.
 
--- Tabla de Usuarios (RBAC)
 CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    nombre_completo VARCHAR(100) NOT NULL,
+    nombre_usuario VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    nombre_completo VARCHAR(150) NOT NULL,
     rol VARCHAR(20) NOT NULL CHECK (rol IN ('admin', 'laboratorio', 'medico')),
-    activo BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de Pacientes (Solicitantes de Carnet)
 CREATE TABLE IF NOT EXISTS pacientes (
     id SERIAL PRIMARY KEY,
-    ci VARCHAR(20) UNIQUE NOT NULL,
-    ci_exp VARCHAR(5) NOT NULL, -- BE, LP, SC, CB, OR, PT, CH, TJ, PD
+    cedula_identidad VARCHAR(15) NOT NULL,
+    cedula_complemento VARCHAR(5),
+    ci_expedido VARCHAR(5) NOT NULL,
     nombres VARCHAR(100) NOT NULL,
     apellidos VARCHAR(100) NOT NULL,
     fecha_nacimiento DATE NOT NULL,
-    genero VARCHAR(20) NOT NULL, -- Masculino, Femenino, Otro
+    genero VARCHAR(100),
     telefono VARCHAR(20),
-    ocupacion VARCHAR(100) NOT NULL, -- Manipulador de Alimentos, Trabajo Sexual, etc.
-    empresa_trabajo VARCHAR(100),
-    mercado VARCHAR(100), -- Mercado Pompeya, Mercado Central, etc.
+    ocupacion VARCHAR(100),
+    empresa_trabajo VARCHAR(150),
+    mercado VARCHAR(100),
     foto_url TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pacientes_ci_complemento_key UNIQUE (cedula_identidad, cedula_complemento)
 );
 
--- Tabla de Trámites (Control de estado del proceso)
 CREATE TABLE IF NOT EXISTS tramites (
-    id SERIAL PRIMARY KEY,
-    paciente_id INTEGER REFERENCES pacientes(id) ON DELETE CASCADE,
+    numero_carnet_sanitario VARCHAR(20) PRIMARY KEY,
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id) ON DELETE RESTRICT,
     tipo_tramite VARCHAR(20) NOT NULL CHECK (tipo_tramite IN ('Apertura', 'Renovación')),
-    numero_carnet_fisico VARCHAR(50),
-    codigo_carnet VARCHAR(30) UNIQUE, -- Generado al ser aprobado (ej. CS-2026-0001)
-    estado VARCHAR(30) DEFAULT 'Pendiente Laboratorio' CHECK (estado IN ('Pendiente Laboratorio', 'Pendiente Medicina', 'Aprobado', 'Rechazado')),
+    estado VARCHAR(30) NOT NULL DEFAULT 'Pendiente Laboratorio'
+        CHECK (estado IN ('Pendiente Laboratorio', 'Pendiente Medicina', 'Aprobado', 'Rechazado')),
     observaciones TEXT,
-    costo_bs DECIMAL(10,2) DEFAULT 30.00,
-    fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_emision TIMESTAMP,
-    fecha_vencimiento TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_inicio DATE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_emision DATE,
+    fecha_vencimiento DATE,
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Compatibilidad: ID usado por pantallas y URLs anteriores.
+    id SERIAL NOT NULL UNIQUE,
+    -- Compatibilidad: código generado y costo de caja que no existen en el esquema base.
+    codigo_carnet VARCHAR(30) UNIQUE,
+    costo_bs NUMERIC(10,2) NOT NULL DEFAULT 30.00
 );
 
--- Tabla de Exámenes de Laboratorio
+CREATE TABLE IF NOT EXISTS quimica_sanguinea (
+    id_sanguinea SERIAL PRIMARY KEY,
+    glucosa NUMERIC(6,2),
+    urea NUMERIC(6,2),
+    creatinina NUMERIC(6,2),
+    grupo_sanguineo VARCHAR(2) CHECK (grupo_sanguineo IN ('A', 'B', 'AB', 'O')),
+    factor_rh VARCHAR(1) CHECK (factor_rh IN ('+', '-')),
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS coproparasitologico (
+    id_coproparasitologico SERIAL PRIMARY KEY,
+    aspecto VARCHAR(50),
+    moco BOOLEAN,
+    sangre_macroscopica BOOLEAN,
+    examen_microscopico_directo TEXT,
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS laboratorios (
     id SERIAL PRIMARY KEY,
-    tramite_id INTEGER REFERENCES tramites(id) ON DELETE CASCADE UNIQUE,
-    quimica_sanguinea JSONB NOT NULL, -- glucosa, urea, creatinina
-    coproparasitologico JSONB NOT NULL, -- parasitos (Negativo / especie), consistencia, color
-    vih JSONB NOT NULL, -- resultado (Reactivo / No Reactivo), consentimiento (boolean)
-    operador_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    tramite_id VARCHAR(20) NOT NULL REFERENCES tramites(numero_carnet_sanitario) ON DELETE CASCADE,
+    quimica_sanguinea_id INTEGER REFERENCES quimica_sanguinea(id_sanguinea) ON DELETE RESTRICT,
+    coproparasitologico_id INTEGER REFERENCES coproparasitologico(id_coproparasitologico) ON DELETE RESTRICT,
+    vih_resultado VARCHAR(20),
+    operador_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
     observaciones TEXT,
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Compatibilidad: conservar consentimiento y representación JSON anteriores.
+    vih_realizado BOOLEAN,
+    vih_consentimiento BOOLEAN,
+    vih_mostrar_en_registro_medico BOOLEAN,
+    datos_compatibilidad JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE IF NOT EXISTS laboratorio_otros_analisis (
@@ -61,42 +87,88 @@ CREATE TABLE IF NOT EXISTS laboratorio_otros_analisis (
     laboratorio_id INTEGER NOT NULL REFERENCES laboratorios(id) ON DELETE CASCADE,
     analisis VARCHAR(100) NOT NULL,
     resultado TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índice para optimizar las lecturas por laboratorio
+CREATE TABLE IF NOT EXISTS examen_revision_general (
+    id_examen SERIAL PRIMARY KEY,
+    evaluacion_dermica TEXT,
+    evaluacion_respiratoria TEXT,
+    evaluacion_cardiovascular TEXT,
+    evaluacion_gastrointestinal TEXT,
+    peso NUMERIC(5,2),
+    altura NUMERIC(4,2),
+    presion VARCHAR(10),
+    temperatura NUMERIC(4,1),
+    pulso INTEGER,
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-
--- Tabla de Consultas Médicas e Historial Clínico
 CREATE TABLE IF NOT EXISTS consultas_medicas (
     id SERIAL PRIMARY KEY,
-    tramite_id INTEGER REFERENCES tramites(id) ON DELETE CASCADE UNIQUE,
-    medico_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-    examen_fisico JSONB NOT NULL, -- piel, respiratorio, cardiovascular, dental
+    tramite_id VARCHAR(20) NOT NULL REFERENCES tramites(numero_carnet_sanitario) ON DELETE CASCADE,
+    medico_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+    examen_revision_general_id INTEGER REFERENCES examen_revision_general(id_examen) ON DELETE RESTRICT,
     antecedentes_patologicos TEXT,
     diagnostico TEXT,
-    aprobado BOOLEAN NOT NULL,
-    firma_medico TEXT, -- Imagen en Base64 o firma dibujada
-    fecha_consulta TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    aprobado BOOLEAN,
+    fecha_consulta TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Compatibilidad: guardar campos/firma de consultas creadas antes de esta migración.
+    examen_fisico_legacy JSONB,
+    firma_medico TEXT
 );
 
--- Tabla de Logs de Auditoría
 CREATE TABLE IF NOT EXISTS logs_auditoria (
     id SERIAL PRIMARY KEY,
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
     accion VARCHAR(100) NOT NULL,
     detalles TEXT,
     ip_address VARCHAR(45),
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para optimizar búsquedas avanzadas
-CREATE INDEX IF NOT EXISTS idx_pacientes_ci ON pacientes(ci);
-CREATE INDEX IF NOT EXISTS idx_pacientes_nombres ON pacientes(nombres, apellidos);
-CREATE INDEX IF NOT EXISTS idx_tramites_estado ON tramites(estado);
-CREATE INDEX IF NOT EXISTS idx_tramites_codigo ON tramites(codigo_carnet);
-CREATE INDEX IF NOT EXISTS idx_tramites_carnet_fisico ON tramites(numero_carnet_fisico);
-CREATE INDEX IF NOT EXISTS idx_otros_analisis_lab_id ON laboratorio_otros_analisis(laboratorio_id);
+-- Ajustar instalaciones que ya tengan el esquema normalizado sin los campos de compatibilidad.
+ALTER TABLE tramites ADD COLUMN IF NOT EXISTS id SERIAL;
+ALTER TABLE tramites ADD COLUMN IF NOT EXISTS codigo_carnet VARCHAR(30);
+ALTER TABLE tramites ADD COLUMN IF NOT EXISTS costo_bs NUMERIC(10,2) NOT NULL DEFAULT 30.00;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tramites_id_compat ON tramites(id);
 
--- Migraciones automáticas idempotentes
-ALTER TABLE tramites ADD COLUMN IF NOT EXISTS numero_carnet_fisico VARCHAR(50);
+ALTER TABLE laboratorios ADD COLUMN IF NOT EXISTS vih_realizado BOOLEAN;
+ALTER TABLE laboratorios ADD COLUMN IF NOT EXISTS vih_consentimiento BOOLEAN;
+ALTER TABLE laboratorios ADD COLUMN IF NOT EXISTS vih_mostrar_en_registro_medico BOOLEAN;
+ALTER TABLE laboratorios ADD COLUMN IF NOT EXISTS datos_compatibilidad JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE consultas_medicas ADD COLUMN IF NOT EXISTS examen_fisico_legacy JSONB;
+ALTER TABLE consultas_medicas ADD COLUMN IF NOT EXISTS firma_medico TEXT;
+
+-- Mantener la opción de rechazo que ya usa el flujo médico.
+DO $$
+DECLARE check_name TEXT;
+BEGIN
+    FOR check_name IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'tramites'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%estado%'
+    LOOP
+        EXECUTE format('ALTER TABLE tramites DROP CONSTRAINT %I', check_name);
+    END LOOP;
+    ALTER TABLE tramites ADD CONSTRAINT tramites_estado_compat_check
+        CHECK (estado IN ('Pendiente Laboratorio', 'Pendiente Medicina', 'Aprobado', 'Rechazado'));
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_quimica_sanguinea_por_laboratorio
+    ON laboratorios(quimica_sanguinea_id) WHERE quimica_sanguinea_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coproparasitologico_por_laboratorio
+    ON laboratorios(coproparasitologico_id) WHERE coproparasitologico_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pacientes_ci ON pacientes(cedula_identidad, cedula_complemento);
+CREATE INDEX IF NOT EXISTS idx_pacientes_nombres ON pacientes(nombres, apellidos);
+CREATE INDEX IF NOT EXISTS idx_tramites_paciente_id ON tramites(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_tramites_estado ON tramites(estado);
+CREATE INDEX IF NOT EXISTS idx_laboratorios_tramite_id ON laboratorios(tramite_id);
+CREATE INDEX IF NOT EXISTS idx_laboratorios_operador_id ON laboratorios(operador_id);
+CREATE INDEX IF NOT EXISTS idx_lab_otros_laboratorio_id ON laboratorio_otros_analisis(laboratorio_id);
+CREATE INDEX IF NOT EXISTS idx_consultas_tramite_id ON consultas_medicas(tramite_id);
+CREATE INDEX IF NOT EXISTS idx_consultas_medico_id ON consultas_medicas(medico_id);
+CREATE INDEX IF NOT EXISTS idx_logs_usuario_id ON logs_auditoria(usuario_id);

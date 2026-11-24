@@ -406,14 +406,16 @@ export default function RegistroPaciente({ onNavigate }) {
             {/* N° de Carnet Físico — campo principal */}
             <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-xl">
               <label className="block text-sm font-bold text-blue-700 mb-2">
-                🪪 N° de Carnet Físico
-                <span className="ml-2 text-[11px] font-normal text-blue-500">(Número pre-impreso en el carnet / factura de caja)</span>
+                🪪 N° de Carnet Sanitario *
+                <span className="ml-2 text-[11px] font-normal text-blue-500">(Número pre-impreso que identifica el trámite)</span>
               </label>
               <input
                 type="text"
                 name="numero_carnet_fisico"
                 value={formData.numero_carnet_fisico}
                 onChange={handleChange}
+                maxLength={20}
+                required
                 placeholder="Ej. 5791 o 5791-1A"
                 disabled={loading}
                 className="w-full px-4 py-3 border-2 border-blue-300 rounded-xl text-2xl font-bold font-mono text-blue-800 outline-none focus:border-blue-600 bg-white tracking-widest placeholder:text-blue-200 placeholder:text-lg uppercase"

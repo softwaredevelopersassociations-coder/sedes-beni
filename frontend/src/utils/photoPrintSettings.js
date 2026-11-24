@@ -1,0 +1,5 @@
+export const PHOTO_PRINT_SIZE_MM = 30;
+export const PHOTO_PRINT_DPI = 300;
+export const PHOTO_PRINT_PAPER_WIDTH_MM = 100;
+export const PHOTO_PRINT_PAPER_HEIGHT_MM = 150;
+export const PHOTO_PRINT_SIZE_PX = Math.round((PHOTO_PRINT_SIZE_MM / 25.4) * PHOTO_PRINT_DPI);
