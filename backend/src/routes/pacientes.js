@@ -107,7 +107,7 @@ router.get('/', verifyToken, async (req, res) => {
 router.get('/aprobados', verifyToken, async (_req, res) => {
   try {
     const result = await db.query(`
-      SELECT t.id AS tramite_id, t.tipo_tramite, t.codigo_carnet,
+      SELECT t.id AS tramite_id, t.tipo_tramite, t.codigo_carnet, t.estado,
              t.numero_carnet_sanitario AS numero_carnet_fisico,
              t.fecha_emision, t.fecha_vencimiento, p.id AS paciente_id,
              ${ciCompletoSql('p')} AS ci, p.ci_expedido AS ci_exp,
@@ -130,6 +130,10 @@ router.get('/aprobados', verifyToken, async (_req, res) => {
         ORDER BY fecha_consulta DESC, id DESC LIMIT 1
       ) c ON true
       WHERE t.estado = 'Aprobado'
+         OR (t.estado = 'Pendiente Medicina' AND EXISTS (
+           SELECT 1 FROM laboratorios lab_registrado
+           WHERE lab_registrado.tramite_id = t.numero_carnet_sanitario
+         ))
       ORDER BY t.fecha_emision DESC NULLS LAST, t.id DESC
     `);
     res.json(result.rows);

@@ -26,7 +26,7 @@ export default function EmisionCarnets() {
       setCarnets(data);
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Error al cargar la lista de carnets aprobados.');
+      setError(err.message || 'Error al cargar la lista de carnets disponibles para imprimir.');
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -63,7 +63,7 @@ export default function EmisionCarnets() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Emisión y Backup de Carnets</h2>
-            <p className="text-xs text-slate-500 mt-1">Gestione, revise e imprima los carnets sanitarios aprobados.</p>
+            <p className="text-xs text-slate-500 mt-1">Puede imprimir después del registro de laboratorio. La entrega física requiere aprobación médica.</p>
           </div>
         </div>
 
@@ -81,8 +81,8 @@ export default function EmisionCarnets() {
         ) : carnets.length === 0 && !error ? (
           <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
             <FileCheck2 size={40} className="text-slate-300 mb-2" />
-            <p className="text-xs font-bold text-slate-500">No hay carnets pendientes de emisión.</p>
-            <p className="text-[10px] text-slate-400 mt-1">Los carnets aparecerán aquí cuando un médico apruebe un trámite.</p>
+            <p className="text-xs font-bold text-slate-500">No hay carnets disponibles para imprimir.</p>
+            <p className="text-[10px] text-slate-400 mt-1">Aparecerán aquí cuando se registren los análisis de laboratorio.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -126,6 +126,7 @@ export default function EmisionCarnets() {
                       <th className="py-3.5 px-6">N° Kardex / Carnet</th>
                       <th className="py-3.5 px-6">Paciente</th>
                       <th className="py-3.5 px-6">Cédula</th>
+                      <th className="py-3.5 px-6">Estado</th>
                       <th className="py-3.5 px-6">Válido Hasta</th>
                       <th className="py-3.5 px-6 text-center">Acciones</th>
                     </tr>
@@ -149,6 +150,19 @@ export default function EmisionCarnets() {
                         </td>
                         <td className="py-3 px-6 font-semibold">{c.nombres} {c.apellidos}</td>
                         <td className="py-3 px-6 font-mono">{c.ci} {c.ci_exp}</td>
+                        <td className="py-3 px-6">
+                          {c.estado === 'Aprobado' ? (
+                            <div>
+                              <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">Aprobado</span>
+                              <p className="text-[10px] text-emerald-700 mt-1">Apto para entrega física</p>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">Pendiente de aprobación médica</span>
+                              <p className="text-[10px] text-amber-700 mt-1">Impresión permitida; no entregar aún</p>
+                            </div>
+                          )}
+                        </td>
                         <td className="py-3 px-6">
                           {c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-ES') : '—'}
                         </td>

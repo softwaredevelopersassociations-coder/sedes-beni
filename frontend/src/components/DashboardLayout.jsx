@@ -71,7 +71,7 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
       id: 'emision-carnets',
       label: 'Emisión de Carnets',
       icon: Printer,
-      roles: ['admin', 'medico'],
+      roles: ['admin', 'medico', 'laboratorio'],
     },
     {
       id: 'usuarios-gestion',
