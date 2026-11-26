@@ -29,9 +29,13 @@ async function applyDatabaseSchema() {
   const schemaPath = path.join(__dirname, '../../database/schema.sql');
   const migrationPath = path.join(__dirname, '../../database/migrations/001_align_target_schema.sql');
   const legacyExamMigrationPath = path.join(__dirname, '../../database/migrations/002_allow_null_legacy_exam.sql');
+  const deliveryMigrationPath = path.join(__dirname, '../../database/migrations/003_entrega_carnets.sql');
+  const deliveryUserMigrationPath = path.join(__dirname, '../../database/migrations/004_entrega_usuario_set_null.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
   const legacyExamMigrationSql = fs.readFileSync(legacyExamMigrationPath, 'utf8');
+  const deliveryMigrationSql = fs.readFileSync(deliveryMigrationPath, 'utf8');
+  const deliveryUserMigrationSql = fs.readFileSync(deliveryUserMigrationPath, 'utf8');
   const client = await pool.connect();
 
   try {
@@ -75,6 +79,26 @@ async function applyDatabaseSchema() {
       await client.query(legacyExamMigrationSql);
       await client.query('INSERT INTO public.schema_migrations(version) VALUES ($1)', ['002_allow_null_legacy_exam']);
       console.log('Migración 002 aplicada: el examen heredado acepta NULL en consultas nuevas.');
+    }
+
+    const deliveryMigration = await client.query(
+      'SELECT 1 FROM public.schema_migrations WHERE version = $1',
+      ['003_entrega_carnets']
+    );
+    if (deliveryMigration.rows.length === 0) {
+      await client.query(deliveryMigrationSql);
+      await client.query('INSERT INTO public.schema_migrations(version) VALUES ($1)', ['003_entrega_carnets']);
+      console.log('Migración 003 aplicada: seguimiento de entrega física de carnets.');
+    }
+
+    const deliveryUserMigration = await client.query(
+      'SELECT 1 FROM public.schema_migrations WHERE version = $1',
+      ['004_entrega_usuario_set_null']
+    );
+    if (deliveryUserMigration.rows.length === 0) {
+      await client.query(deliveryUserMigrationSql);
+      await client.query('INSERT INTO public.schema_migrations(version) VALUES ($1)', ['004_entrega_usuario_set_null']);
+      console.log('Migración 004 aplicada: las entregas conservan su historial al eliminar un usuario.');
     }
 
     const userCount = await client.query('SELECT COUNT(*)::int AS count FROM public.usuarios');

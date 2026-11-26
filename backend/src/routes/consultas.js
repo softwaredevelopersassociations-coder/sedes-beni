@@ -166,7 +166,9 @@ router.post('/:tramiteId', verifyToken, checkRole(['admin', 'medico']), async (r
       `, [year]);
       codigoCarnet = `CS-${year}-${String(seqRes.rows[0].count + 1).padStart(4, '0')}`;
       await client.query(`
-        UPDATE tramites SET estado = $1, codigo_carnet = $2, fecha_emision = $3, fecha_vencimiento = $4
+        UPDATE tramites
+        SET estado = $1, codigo_carnet = $2, fecha_emision = $3, fecha_vencimiento = $4,
+            estado_entrega = 'Pendiente de entrega'
         WHERE id = $5
       `, [estadoFinal, codigoCarnet, fechaEmision, fechaVencimiento, tramite.id]);
     } else {

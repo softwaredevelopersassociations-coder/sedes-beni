@@ -9,6 +9,7 @@ const pacientesRoutes = require('./routes/pacientes');
 const laboratoriosRoutes = require('./routes/laboratorios');
 const consultasRoutes = require('./routes/consultas');
 const estadisticasRoutes = require('./routes/estadisticas');
+const entregasCarnetsRoutes = require('./routes/entregasCarnets');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/laboratorios', laboratoriosRoutes);
 app.use('/api/consultas', consultasRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
+app.use('/api/entregas-carnets', entregasCarnetsRoutes);
 
 // Ruta de estado general
 app.get('/health', (req, res) => {

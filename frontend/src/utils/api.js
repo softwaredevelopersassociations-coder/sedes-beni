@@ -86,6 +86,23 @@ const api = {
       }),
   },
 
+  // Entrega física de carnets aprobados
+  entregasCarnets: {
+    list: (filters = {}) => {
+      const params = new URLSearchParams();
+      if (filters.estado) params.append('estado', filters.estado);
+      if (filters.query) params.append('query', filters.query);
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+      return request(`/entregas-carnets${queryStr}`);
+    },
+    markDelivered: (tramiteId) => request(`/entregas-carnets/${tramiteId}/entregar`, {
+      method: 'PATCH',
+    }),
+    undoDelivery: (tramiteId) => request(`/entregas-carnets/${tramiteId}/deshacer-entrega`, {
+      method: 'PATCH',
+    }),
+  },
+
   // Laboratorio
   laboratorios: {
     getPendientes: () => request('/laboratorios/pendientes'),

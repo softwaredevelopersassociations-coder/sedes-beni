@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Printer,
+  ClipboardCheck,
   Moon,
   Sun
 } from 'lucide-react';
@@ -72,6 +73,12 @@ export default function DashboardLayout({ activePage, onNavigate, children }) {
       label: 'Emisión de Carnets',
       icon: Printer,
       roles: ['admin', 'medico', 'laboratorio'],
+    },
+    {
+      id: 'entrega-carnets',
+      label: 'Entrega de Carnets',
+      icon: ClipboardCheck,
+      roles: ['admin'],
     },
     {
       id: 'usuarios-gestion',

@@ -12,6 +12,7 @@ import ConsultaMedica from './pages/ConsultaMedica';
 import Reportes from './pages/Reportes';
 import UsuariosGestion from './pages/UsuariosGestion';
 import EmisionCarnets from './pages/EmisionCarnets';
+import EntregaCarnets from './pages/EntregaCarnets';
 
 function NavigationRouter() {
   const { user, loading } = useAuth();
@@ -85,6 +86,8 @@ function NavigationRouter() {
         return <UsuariosGestion />;
       case 'emision-carnets':
         return <EmisionCarnets />;
+      case 'entrega-carnets':
+        return <EntregaCarnets />;
       default:
         return (
           <div className="p-6 text-center text-slate-500 bg-white border rounded-xl">
